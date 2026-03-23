@@ -8,7 +8,9 @@ export const BackgroundMusic: React.FC = () => {
         bgmPlayer, 
         isGameOverBgmEnabled, 
         gameOverLobbyPlayer,
-        isSoundEnabled
+        playingLobbyPlayer,
+        isSoundEnabled,
+        isPlayingLobbyBgmEnabled,
     } = useAudio();
     const pathname = usePathname();
     
@@ -18,6 +20,7 @@ export const BackgroundMusic: React.FC = () => {
 
     const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const gameOverFadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const playingFadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // ── MAIN LOBBY MUSIC ──────────────────────────────────────────────────────
     useEffect(() => {
@@ -62,6 +65,47 @@ export const BackgroundMusic: React.FC = () => {
             }
         }
     }, [bgmPlayer, isHomePage, isBgmEnabled, isGameOverBgmEnabled, isSoundEnabled]);
+
+    // ── IN-GAME PLAYING MUSIC (playing_Lobby.mp3) ─────────────────────────────
+    useEffect(() => {
+        if (!playingLobbyPlayer) return;
+        playingLobbyPlayer.loop = true;
+
+        const isPlaying = isPlayingLobbyBgmEnabled && isSoundEnabled;
+
+        if (isPlaying) {
+            if (!playingLobbyPlayer.playing) {
+                playingLobbyPlayer.volume = 0;
+                playingLobbyPlayer.play();
+                const targetVolume = 0.3;
+                const duration = 1000;
+                const interval = 50;
+                const steps = duration / interval;
+                const increment = targetVolume / steps;
+
+                let currentVolume = 0;
+                if (playingFadeTimerRef.current) clearInterval(playingFadeTimerRef.current);
+                playingFadeTimerRef.current = setInterval(() => {
+                    currentVolume += increment;
+                    if (currentVolume >= targetVolume) {
+                        playingLobbyPlayer.volume = targetVolume;
+                        if (playingFadeTimerRef.current) clearInterval(playingFadeTimerRef.current);
+                        playingFadeTimerRef.current = null;
+                    } else {
+                        playingLobbyPlayer.volume = currentVolume;
+                    }
+                }, interval);
+            }
+        } else {
+            if (playingFadeTimerRef.current) {
+                clearInterval(playingFadeTimerRef.current);
+                playingFadeTimerRef.current = null;
+            }
+            if (playingLobbyPlayer.playing) {
+                playingLobbyPlayer.pause();
+            }
+        }
+    }, [playingLobbyPlayer, isPlayingLobbyBgmEnabled, isSoundEnabled]);
 
     // ── GAME OVER LOBBY MUSIC ─────────────────────────────────────────────────
     useEffect(() => {

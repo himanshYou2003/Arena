@@ -17,12 +17,11 @@ const DODGE_SOUND = require("../assets/sounds/dodge_simple.mp3");
 const LEVELUP_SOUND = require("../assets/sounds/levelup_simple.mp3");
 const GAMEOVER_SOUND = require("../assets/sounds/gameover_simple.mp3");
 const GAMEOVER_LOBBY_PATH = require("../assets/sounds/gameover_lobby.mp3");
+const PLAYING_LOBBY_PATH = require("../assets/sounds/playing_Lobby.mp3");
+const THUNDER_STRIKE_SOUND = require("../assets/sounds/ThunderStrick.wav");
 const SILENT_SOUND = require("../assets/sounds/silent.mp3");
 
-setAudioModeAsync({
-  playsInSilentMode: true,
-  shouldPlayInBackground: false,
-}).catch(() => {});
+// Audio mode is initialized safely inside RootLayout's useEffect below.
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -54,6 +53,8 @@ export default function RootLayout() {
   const levelUpPlayer = useAudioPlayer(require('../assets/sounds/levelup_simple.mp3'), { downloadFirst: true });
   const gameOverPlayer = useAudioPlayer(require('../assets/sounds/gameover_simple.mp3'), { downloadFirst: true });
   const gameOverLobbyPlayer = useAudioPlayer(require('../assets/sounds/gameover_lobby.mp3'), { downloadFirst: true });
+  const playingLobbyPlayer = useAudioPlayer(require('../assets/sounds/playing_Lobby.mp3'), { downloadFirst: true });
+  const thunderStrikePlayer = useAudioPlayer(require('../assets/sounds/ThunderStrick.wav'), { downloadFirst: true });
   
   const d1 = useAudioPlayer(require('../assets/sounds/dodge_simple.mp3'));
   const d2 = useAudioPlayer(require('../assets/sounds/dodge_simple.mp3'));
@@ -74,6 +75,8 @@ export default function RootLayout() {
       levelUpPlayer={levelUpPlayer}
       gameOverPlayer={gameOverPlayer}
       gameOverLobbyPlayer={gameOverLobbyPlayer}
+      playingLobbyPlayer={playingLobbyPlayer}
+      thunderStrikePlayer={thunderStrikePlayer}
     >
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>

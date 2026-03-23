@@ -8,6 +8,8 @@ interface AudioContextType {
   setIsBgmEnabled: (enabled: boolean) => void;
   isGameOverBgmEnabled: boolean;
   setIsGameOverBgmEnabled: (enabled: boolean) => void;
+  isPlayingLobbyBgmEnabled: boolean;
+  setIsPlayingLobbyBgmEnabled: (enabled: boolean) => void;
   isSoundEnabled: boolean;
   setIsSoundEnabled: (enabled: boolean) => void;
   // Hold references to pre-loaded players for zero-latency access
@@ -17,6 +19,8 @@ interface AudioContextType {
   levelUpPlayer?: any;
   gameOverPlayer?: any;
   gameOverLobbyPlayer?: any;
+  playingLobbyPlayer?: any;
+  thunderStrikePlayer?: any;
   gameState: string;
   setGameState: (state: string) => void;
   playSfx: (player: any, volume?: number, force?: boolean) => void;
@@ -32,9 +36,12 @@ export const AudioProvider: React.FC<{
   levelUpPlayer?: any;
   gameOverPlayer?: any;
   gameOverLobbyPlayer?: any;
-}> = ({ children, bgmPlayer, countdownPlayer, dodgePool, levelUpPlayer, gameOverPlayer, gameOverLobbyPlayer }) => {
+  playingLobbyPlayer?: any;
+  thunderStrikePlayer?: any;
+}> = ({ children, bgmPlayer, countdownPlayer, dodgePool, levelUpPlayer, gameOverPlayer, gameOverLobbyPlayer, playingLobbyPlayer, thunderStrikePlayer }) => {
   const [isBgmEnabled, setIsBgmEnabled] = useState(true);
   const [isGameOverBgmEnabled, setIsGameOverBgmEnabled] = useState(false);
+  const [isPlayingLobbyBgmEnabled, setIsPlayingLobbyBgmEnabled] = useState(false);
   const [isSoundEnabled, setIsSoundEnabledState] = useState(true);
   const [gameState, setGameState] = useState("menu");
 
@@ -87,6 +94,8 @@ export const AudioProvider: React.FC<{
       setIsBgmEnabled,
       isGameOverBgmEnabled,
       setIsGameOverBgmEnabled,
+      isPlayingLobbyBgmEnabled,
+      setIsPlayingLobbyBgmEnabled,
       isSoundEnabled,
       setIsSoundEnabled,
       bgmPlayer,
@@ -95,6 +104,8 @@ export const AudioProvider: React.FC<{
       levelUpPlayer,
       gameOverPlayer,
       gameOverLobbyPlayer,
+      playingLobbyPlayer,
+      thunderStrikePlayer,
       gameState,
       setGameState,
       playSfx

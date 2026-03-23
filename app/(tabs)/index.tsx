@@ -183,9 +183,11 @@ export default function ArenaGame() {
     bgmPlayer,
     countdownPlayer, 
     levelUpPlayer, 
-    gameOverPlayer, 
+    gameOverPlayer,
+    thunderStrikePlayer,
     isGameOverBgmEnabled,
-    setIsGameOverBgmEnabled, 
+    setIsGameOverBgmEnabled,
+    setIsPlayingLobbyBgmEnabled,
     isSoundEnabled, 
     setIsSoundEnabled,
     gameState,
@@ -228,6 +230,15 @@ export default function ArenaGame() {
   const isInvulnerableRef = useRef(false);
   const isSloMoRef = useRef(false);
   const lastVoidPulseRef = useRef(0);
+  // ── GAME-LOOP REF MIRRORS (prevent RAF restarts on frequent state changes) ──
+  const hasShieldRef = useRef(false);
+  const thunderChargeRef = useRef(0);
+  const currentSkinRef = useRef("default");
+  useEffect(() => { hasShieldRef.current = hasShield; }, [hasShield]);
+  useEffect(() => { thunderChargeRef.current = thunderCharge; }, [thunderCharge]);
+  useEffect(() => { currentSkinRef.current = profiles[currentPlayer]?.currentSkin || "default"; }, [profiles, currentPlayer]);
+  const isSoundEnabledRef = useRef(true);
+  useEffect(() => { isSoundEnabledRef.current = isSoundEnabled; }, [isSoundEnabled]);
   
   // UI States (for rendering only)
   const [dodgeCount, setDodgeCount] = useState(0);
@@ -683,6 +694,7 @@ export default function ArenaGame() {
           powerups.current = [];
           nextId.current = 0;
           currentScore.current = 0;
+          lastWave.current = 0; // ← CRITICAL: reset between games so wave detection starts from 0
           
           // Side-effects outside of render loop
           setTimeout(() => {
@@ -694,9 +706,8 @@ export default function ArenaGame() {
             setGameState("playing");
             setIsStarting(false);
             
-            // --- WAVE 1 START SIGNAL ---
-            // Immediate Zero-Latency Trigger
-        playSfx(levelUpPlayer, 1.0, true);
+            // --- WAVE 1 START SIGNAL: always plays, bypasses sound toggle ---
+            if (levelUpPlayer) { levelUpPlayer.currentTime > 0 && levelUpPlayer.seekTo(0); levelUpPlayer.play(); }
           }, 0);
           
           return 0;
@@ -736,6 +747,7 @@ export default function ArenaGame() {
     setGameState("countdown");
     setIsBgmEnabled(false);
     setIsGameOverBgmEnabled(false);
+    setIsPlayingLobbyBgmEnabled(false);
 
     // Play countdown sound
     playSfx(countdownPlayer, 0.4);
@@ -798,7 +810,7 @@ export default function ArenaGame() {
     const now = Date.now();
 
     if (now - lastScoreTick.current > SCORE_TICK_MS) {
-      const currentSkin = profiles[currentPlayer]?.currentSkin || "default";
+      const currentSkin = currentSkinRef.current;
       // OMEGA: No multiplier reset
       if (multiplierRef.current > 1 && now - lastDodgeTime.current > 3000 && currentSkin !== "prism") {
         multiplierRef.current = 1;
@@ -819,7 +831,7 @@ export default function ArenaGame() {
       const newWaveIdx = Math.floor(currentScore.current / WAVE_SIZE);
       if (newWaveIdx > lastWave.current) {
         lastWave.current = newWaveIdx;
-        playSfx(levelUpPlayer, 1.0, true);
+        if (levelUpPlayer) { if (levelUpPlayer.currentTime > 0) levelUpPlayer.seekTo(0); levelUpPlayer.play(); }
         const displayWave = newWaveIdx + 1;
         setWaveNumber(displayWave);
         triggerWaveFlash(`WAVE ${displayWave}`);
@@ -869,7 +881,7 @@ export default function ArenaGame() {
     const speed = getEnemySpeed(currentScore.current);
     let collision = false;
     let closestDistSq = 99999999;
-    const skinId = profiles[currentPlayer]?.currentSkin || "default";
+    const skinId = currentSkinRef.current;
     const px = playerPos.current.x, py = playerPos.current.y;
     
     // NEON PRECISION: Smaller hitbox (22px) + Wider Dodge Margin (+70px)
@@ -963,7 +975,7 @@ export default function ArenaGame() {
           continue;
         }
 
-        if (thunderCharge >= 5) {
+        if (thunderChargeRef.current >= 1) {
           // --- THUNDER STRIKE! (Full Screen Clear) ---
           enemies.current = [];
           
@@ -976,7 +988,9 @@ export default function ArenaGame() {
           }
           
           setThunderCharge(0);
-          setHasShield(false); 
+          setHasShield(false);
+          thunderChargeRef.current = 0;
+          hasShieldRef.current = false; 
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           
           // Flicker Strobe Effect (Lightning)
@@ -993,20 +1007,23 @@ export default function ArenaGame() {
           shakeX.setValue(30);
           Animated.spring(shakeX, { toValue: 0, friction: 3, useNativeDriver: true }).start();
           
-          // Play level up sound as a "power" sound
-          playSfx(levelUpPlayer, 1.0, true);
+          // Thunder Strike sound — respects sound toggle via live ref
+          if (isSoundEnabledRef.current && thunderStrikePlayer) {
+            if (thunderStrikePlayer.currentTime > 0) thunderStrikePlayer.seekTo(0);
+            thunderStrikePlayer.play();
+          }
           
           continue;
         }
         
-        if (hasShield) {
+        if (hasShieldRef.current) {
           // --- FORGIVABLE SHIELD SYSTEM (Phase 45) ---
-          // Instead of resetting to 0, we just decrease by 1 as per user request
-          const nextCharge = Math.max(0, thunderCharge - 1);
+          const nextCharge = Math.max(0, thunderChargeRef.current - 1);
           setThunderCharge(nextCharge);
-          
+          thunderChargeRef.current = nextCharge;
           if (nextCharge === 0) {
             setHasShield(false);
+            hasShieldRef.current = false;
           }
           
           enemies.current.splice(i, 1);
@@ -1024,7 +1041,7 @@ export default function ArenaGame() {
         const p = powerups.current[i];
         const dx = px - p.x, dy = py - p.y;
         const dSq = dx*dx + dy*dy;
-        const currentSkin = profiles[currentPlayer]?.currentSkin || "default";
+        const currentSkin = currentSkinRef.current;
 
         // NOVA MAGNETAR: Pull powerups within 200px
         if (currentSkin === "nova" && dSq < 40000) {
@@ -1050,6 +1067,7 @@ export default function ArenaGame() {
       // play death sound
       playSfx(gameOverPlayer, 1.0, true);
       setIsGameOverBgmEnabled(true);
+      setIsPlayingLobbyBgmEnabled(false);
       
       triggerShake();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -1067,19 +1085,13 @@ export default function ArenaGame() {
   }, [
     triggerWaveFlash,
     triggerShake,
-    hasShield,
-    isSoundEnabled,
-    dodgePool, // Changed from dodgePlayer
+    dodgePool,
     levelUpPlayer,
     gameOverPlayer,
-    setIsGameOverBgmEnabled,
     commitScore,
     dodgeShockwave,
     thunderPulse,
     multiplierPulse,
-    profiles,
-    thunderCharge,
-    setThunderCharge,
     currentPlayer,
   ]);
 
@@ -1101,6 +1113,15 @@ export default function ArenaGame() {
       }
     };
   }, [gameState, update]);
+
+  // ── PLAYING LOBBY BGM: trigger at Wave 2, reset on gameover/menu ─────────────
+  useEffect(() => {
+    if (waveNumber >= 2 && gameState === "playing") {
+      setIsPlayingLobbyBgmEnabled(true);
+    } else {
+      setIsPlayingLobbyBgmEnabled(false);
+    }
+  }, [waveNumber, gameState, setIsPlayingLobbyBgmEnabled]);
 
   // ── SCORE SHARING ─────────────────────────────────────────────────────────────
   const shareScore = async () => {
@@ -1174,7 +1195,7 @@ export default function ArenaGame() {
         style={[
           StyleSheet.absoluteFill,
           {
-            backgroundColor: "#D3B07A", // Electric Cyan
+            backgroundColor: "#00E5FF", // Electric Cyan
             opacity: thunderPulse.interpolate({
               inputRange: [0, 1],
               outputRange: [0, 0.95],
@@ -1201,7 +1222,7 @@ export default function ArenaGame() {
           height: 200,
           borderRadius: 100,
           borderWidth: 10,
-          borderColor: '#FFF',
+          borderColor: '#00E5FF',
           opacity: thunderPulse,
           transform: [{ scale: thunderPulse.interpolate({ inputRange: [0, 1], outputRange: [8, 1] }) }]
         }} />
@@ -1317,9 +1338,9 @@ export default function ArenaGame() {
                   style={{ 
                     width: 8, 
                     height: 4, 
-                    backgroundColor: thunderCharge >= i ? "#D3B07A" : "rgba(255,255,255,0.2)",
+                    backgroundColor: thunderCharge >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
                     borderRadius: 2,
-                    shadowColor: "#D3B07A",
+                    shadowColor: "#00E5FF",
                     shadowRadius: thunderCharge >= i ? 4 : 0,
                     shadowOpacity: 0.8
                   }} 
@@ -1576,21 +1597,7 @@ export default function ArenaGame() {
             <View style={styles.proCard}>
               <View style={[styles.cardHeader, { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }]}>
                 <Text style={styles.cardTitle}>RESULTS FOR PILOT</Text>
-                <TouchableOpacity 
-                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,100,100,0.1)", paddingHorizontal: moderateScale(10), paddingVertical: moderateScale(6), borderRadius: moderateScale(4) }}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setPendingName(currentPlayer);
-                    setShowNameEntry(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="person" size={12} color="#E4C79F" style={{marginRight: 6}} />
-                  <Text style={{ color: "#FFF", fontSize: moderateScale(11), fontFamily: "Orbitron" }}>
-                    {currentPlayer}
-                  </Text>
-                  <Ionicons name="pencil" size={10} color="#E4C79F" style={{ opacity: 0.6, marginLeft: 6 }} />
-                </TouchableOpacity>
+                <Ionicons name="skull" size={20} color="#D3B07A" />
               </View>
               <View style={styles.cardBody}>
                 <View style={styles.gridRow}>
@@ -1598,23 +1605,6 @@ export default function ArenaGame() {
                     <Text style={styles.statLabel}>SCORE</Text>
                     <Text style={styles.statValue}>{score}</Text>
               
-              {/* Thunder Charge Indicator */}
-              <View style={{ flexDirection: "row", gap: 4, marginTop: 4, justifyContent: "center" }}>
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <View 
-                    key={i} 
-                    style={{ 
-                      width: 8, 
-                      height: 4, 
-                      backgroundColor: thunderCharge >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
-                      borderRadius: 2,
-                      shadowColor: "#00E5FF",
-                      shadowRadius: thunderCharge >= i ? 4 : 0,
-                      shadowOpacity: 0.8
-                    }} 
-                  />
-                ))}
-              </View>
                     <View style={styles.scoreUnderline} />
                   </View>
                   <View style={styles.gridItem}>
@@ -2299,7 +2289,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   multiplierBadge: {
-    marginTop: moderateScale(20),
+    position: "absolute",
+    top: moderateScale(60),
     alignSelf: "center",
     alignItems: "center",
     backgroundColor: "rgba(211,176,122,0.15)",
