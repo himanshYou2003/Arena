@@ -176,6 +176,7 @@ const SKINS = [
 export default function ArenaGame() {
   const [fontsLoaded] = useFonts({
     Orbitron: require("../../assets/Orbitron[wght].ttf"),
+    Centralwell: require("../../assets/Centralwell.ttf"),
   });
   const { 
     isBgmEnabled, 
@@ -225,6 +226,11 @@ export default function ArenaGame() {
   const [lbTab, setLbTab] = useState<"top" | "recent">("top");
   const tabSlideAnim = useRef(new Animated.Value(0)).current;
   
+  // Name Hint (First-time user discovery)
+  const [showNameHint, setShowNameHint] = useState(false);
+  const nameHintAnim = useRef(new Animated.Value(0)).current;
+  const NAME_HINT_KEY = "arena_name_hint_seen_v1";
+  
   // Advanced Skin Power (Logic Refs for 60fps accuracy)
   const dodgeCountRef = useRef(0);
   const isInvulnerableRef = useRef(false);
@@ -259,7 +265,45 @@ export default function ArenaGame() {
   const [history, setHistory] = useState<GameRecord[]>([]);
 
   const highScore = profiles[currentPlayer]?.bestScore || 0;
+  
+  // ── INIT: Check Name Hint Seen ─────────────────────────────────────────────
+  useEffect(() => {
+    const checkHint = async () => {
+      try {
+        const value = await AsyncStorage.getItem(NAME_HINT_KEY);
+        if (value === null) {
+          setShowNameHint(true);
+        }
+      } catch (e) {
+        console.warn("Hint storage error:", e);
+      }
+    };
+    checkHint();
+  }, []);
 
+  // ── ANIM: Name Hint Blinking Loop ─────────────────────────────────────────
+  useEffect(() => {
+    if (showNameHint) {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(nameHintAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          Animated.timing(nameHintAnim, {
+            toValue: 0.3,
+            duration: 800,
+            useNativeDriver: true,
+            easing: Easing.inOut(Easing.ease),
+          }),
+        ])
+      );
+      animation.start();
+      return () => animation.stop();
+    }
+  }, [showNameHint]);
   const pendingScore = useRef(0);
   const pendingWave = useRef(0);
   const lastCommittedName = useRef("");
@@ -975,7 +1019,7 @@ export default function ArenaGame() {
           continue;
         }
 
-        if (thunderChargeRef.current >= 1) {
+        if (thunderChargeRef.current >= 5) {
           // --- THUNDER STRIKE! (Full Screen Clear) ---
           enemies.current = [];
           
@@ -1056,7 +1100,7 @@ export default function ArenaGame() {
           const pType = (p as any).type;
           if (pType === "shield") {
             setHasShield(true);
-            setThunderCharge(prev => prev + 1);
+            setThunderCharge(prev => Math.min(prev + 1, 5));
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
           powerups.current = powerups.current.filter((item) => item.id !== p.id);
@@ -1144,7 +1188,8 @@ export default function ArenaGame() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => stateRef.current === "playing",
+      onMoveShouldSetPanResponder: () => stateRef.current === "playing",
       onPanResponderGrant: () => {
         panResponderStart.current = { ...playerPos.current };
       },
@@ -1466,21 +1511,85 @@ export default function ArenaGame() {
                   </View>
 
                   
-                  <TouchableOpacity 
-                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(211,176,122,0.1)", paddingHorizontal: moderateScale(10), paddingVertical: moderateScale(6), borderRadius: moderateScale(4) }}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setPendingName(currentPlayer);
-                      setShowNameEntry(true);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="person" size={12} color="#D3B07A" style={{marginRight: 6}} />
-                    <Text style={{ color: "#FFF", fontSize: moderateScale(11), fontFamily: "Orbitron" }}>
-                      {currentPlayer}
-                    </Text>
-                    <Ionicons name="pencil" size={10} color="#D3B07A" style={{ opacity: 0.6, marginLeft: 6 }} />
-                  </TouchableOpacity>
+                  <View pointerEvents="box-none" style={{ position: "relative" }}>
+                    <TouchableOpacity 
+                      style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(211,176,122,0.1)", paddingHorizontal: moderateScale(10), paddingVertical: moderateScale(6), borderRadius: moderateScale(4) }}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setPendingName(currentPlayer);
+                        setShowNameEntry(true);
+                        if (showNameHint) {
+                          setShowNameHint(false);
+                          AsyncStorage.setItem(NAME_HINT_KEY, "seen").catch(() => {});
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="person" size={12} color="#D3B07A" style={{marginRight: 6}} />
+                      <Text style={{ color: "#FFF", fontSize: moderateScale(11), fontFamily: "Orbitron" }}>
+                        {currentPlayer}
+                      </Text>
+                      <Ionicons name="pencil" size={10} color="#D3B07A" style={{ opacity: 0.6, marginLeft: 6 }} />
+                    </TouchableOpacity>
+
+                    {showNameHint && (
+                      <Animated.View 
+                        pointerEvents="none"
+                        style={{ 
+                          position: "absolute", 
+                          bottom: moderateScale(38), 
+                          right: moderateScale(-10), 
+                          alignItems: "flex-end",
+                          opacity: nameHintAnim,
+                        }}
+                      >
+                        <View style={{ 
+                          backgroundColor: "#E4C79F", 
+                          paddingHorizontal: moderateScale(20), 
+                          paddingVertical: moderateScale(6), 
+                          borderRadius: moderateScale(30),
+                          shadowColor: "#000",
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 8,
+                          elevation: 10,
+                          minWidth: moderateScale(160),
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1,
+                          borderColor: "rgba(0,0,0,0.05)"
+                        }}>
+                          <Text 
+                            numberOfLines={1}
+                            style={{ 
+                              fontFamily: "Centralwell", 
+                              fontSize: moderateScale(26), 
+                              color: "#000000",
+                              lineHeight: moderateScale(30),
+                              textAlign: "center"
+                            }}
+                          >
+                            change your name
+                          </Text>
+                        </View>
+                        {/* Triangle for Speech Bubble */}
+                        <View style={{
+                          width: 0,
+                          height: 0,
+                          backgroundColor: "transparent",
+                          borderStyle: "solid",
+                          borderLeftWidth: 8,
+                          borderRightWidth: 8,
+                          borderTopWidth: 10,
+                          borderLeftColor: "transparent",
+                          borderRightColor: "transparent",
+                          borderTopColor: "#E4C79F",
+                          marginTop: -1,
+                          marginRight: moderateScale(25)
+                        }} />
+                      </Animated.View>
+                    )}
+                  </View>
                 </View>
                 <View style={styles.cardBody}>
                   <View style={styles.cardStatRow}>
@@ -2677,7 +2786,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,100,100,0.1)",
     borderRadius: moderateScale(16),
     marginBottom: moderateScale(32),
-    overflow: "hidden",
   },
   proCardModal: {
     width: "90%",
