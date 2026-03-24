@@ -28,41 +28,35 @@ export const BackgroundMusic: React.FC = () => {
         bgmPlayer.loop = true;
 
         const shouldPlay = isHomePage && isBgmEnabled && !isGameOverBgmEnabled && isSoundEnabled;
-        console.log("[BGM] shouldPlay Evaluation:", shouldPlay, "(Home:", isHomePage, "Ena:", isBgmEnabled, "Gov:", isGameOverBgmEnabled, "Snd:", isSoundEnabled, ")");
-
+        
         if (shouldPlay) {
-            console.log("[BGM] Entering Play Block. Player Playing State:", bgmPlayer.playing);
             if (!bgmPlayer.playing) {
-                console.log("[BGM] Initiating Playback + Fade-in Sequence...");
+                // Time-accurate Fade-in
+                bgmPlayer.playbackSpeed = 1.0; 
                 bgmPlayer.volume = 0;
                 bgmPlayer.play();
+                
                 const targetVolume = 0.2;
                 const duration = 2000;
-                const interval = 50;
-                const steps = duration / interval;
-                const increment = targetVolume / steps;
+                const startTime = Date.now();
 
-                let currentVolume = 0;
                 if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
                 fadeTimerRef.current = setInterval(() => {
-                    currentVolume += increment;
-                    if (currentVolume >= targetVolume) {
-                        bgmPlayer.volume = targetVolume;
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    bgmPlayer.volume = progress * targetVolume;
+                    if (progress >= 1) {
                         if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
                         fadeTimerRef.current = null;
-                    } else {
-                        bgmPlayer.volume = currentVolume;
                     }
-                }, interval);
+                }, 16);
             }
         } else {
             if (fadeTimerRef.current) {
                 clearInterval(fadeTimerRef.current);
                 fadeTimerRef.current = null;
             }
-            if (bgmPlayer.playing) {
-                bgmPlayer.pause();
-            }
+            if (bgmPlayer.playing) bgmPlayer.pause();
         }
     }, [bgmPlayer, isHomePage, isBgmEnabled, isGameOverBgmEnabled, isSoundEnabled]);
 
@@ -75,35 +69,31 @@ export const BackgroundMusic: React.FC = () => {
 
         if (isPlaying) {
             if (!playingLobbyPlayer.playing) {
+                playingLobbyPlayer.playbackSpeed = 1.0;
                 playingLobbyPlayer.volume = 0;
                 playingLobbyPlayer.play();
+                
                 const targetVolume = 0.3;
                 const duration = 1000;
-                const interval = 50;
-                const steps = duration / interval;
-                const increment = targetVolume / steps;
+                const startTime = Date.now();
 
-                let currentVolume = 0;
                 if (playingFadeTimerRef.current) clearInterval(playingFadeTimerRef.current);
                 playingFadeTimerRef.current = setInterval(() => {
-                    currentVolume += increment;
-                    if (currentVolume >= targetVolume) {
-                        playingLobbyPlayer.volume = targetVolume;
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    playingLobbyPlayer.volume = progress * targetVolume;
+                    if (progress >= 1) {
                         if (playingFadeTimerRef.current) clearInterval(playingFadeTimerRef.current);
                         playingFadeTimerRef.current = null;
-                    } else {
-                        playingLobbyPlayer.volume = currentVolume;
                     }
-                }, interval);
+                }, 16);
             }
         } else {
             if (playingFadeTimerRef.current) {
                 clearInterval(playingFadeTimerRef.current);
                 playingFadeTimerRef.current = null;
             }
-            if (playingLobbyPlayer.playing) {
-                playingLobbyPlayer.pause();
-            }
+            if (playingLobbyPlayer.playing) playingLobbyPlayer.pause();
         }
     }, [playingLobbyPlayer, isPlayingLobbyBgmEnabled, isSoundEnabled]);
 
@@ -114,35 +104,31 @@ export const BackgroundMusic: React.FC = () => {
 
         if (isGameOverBgmEnabled && isSoundEnabled) {
             if (!gameOverLobbyPlayer.playing) {
+                gameOverLobbyPlayer.playbackSpeed = 1.0;
                 gameOverLobbyPlayer.volume = 0;
                 gameOverLobbyPlayer.play();
-                const targetVolume = 0.25; // Slightly higher for lobby feel
+                
+                const targetVolume = 0.25;
                 const duration = 1500;
-                const interval = 50;
-                const steps = duration / interval;
-                const increment = targetVolume / steps;
+                const startTime = Date.now();
 
-                let currentVolume = 0;
                 if (gameOverFadeTimerRef.current) clearInterval(gameOverFadeTimerRef.current);
                 gameOverFadeTimerRef.current = setInterval(() => {
-                    currentVolume += increment;
-                    if (currentVolume >= targetVolume) {
-                        gameOverLobbyPlayer.volume = targetVolume;
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    gameOverLobbyPlayer.volume = progress * targetVolume;
+                    if (progress >= 1) {
                         if (gameOverFadeTimerRef.current) clearInterval(gameOverFadeTimerRef.current);
                         gameOverFadeTimerRef.current = null;
-                    } else {
-                        gameOverLobbyPlayer.volume = currentVolume;
                     }
-                }, interval);
+                }, 16);
             }
         } else {
             if (gameOverFadeTimerRef.current) {
                 clearInterval(gameOverFadeTimerRef.current);
                 gameOverFadeTimerRef.current = null;
             }
-            if (gameOverLobbyPlayer.playing) {
-                gameOverLobbyPlayer.pause();
-            }
+            if (gameOverLobbyPlayer.playing) gameOverLobbyPlayer.pause();
         }
     }, [gameOverLobbyPlayer, isGameOverBgmEnabled, isSoundEnabled]);
 

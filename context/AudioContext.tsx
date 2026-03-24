@@ -74,12 +74,13 @@ export const AudioProvider: React.FC<{
     }
 
     try {
-      // Set volume before play for instant effect
+      // Set volume and speed before play
       if (player.volume !== volume) player.volume = volume;
+      player.playbackSpeed = 1.0;
       
       // OPTIMIZATION: On many Android systems, seekTo(0) adds 20-40ms of buffering latency.
       // We only seek if the player isn't already at the start.
-      if (player.currentTime > 0) {
+      if (player.currentTime > 0.05) { // Threshold for "already playing"
         player.seekTo(0);
       }
       player.play();

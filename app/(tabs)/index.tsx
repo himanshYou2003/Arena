@@ -77,14 +77,738 @@ const SCORE_TICK_MS = 500;
 const BASE_SPAWN_RATE = 2200; // Moderated from 1400 for a smoother start
 const SPAWN_RATE_STEP = 150;  // Gradual scaling
 const MIN_SPAWN_RATE = 800;   // Tactical floor (approx 2 enemies per second)
-const MAX_ENEMIES = 30;       // Balanced buffer for mobile performance
+const MAX_ENEMIES = 25;       // Balanced buffer for mobile performance
+// ─── OPTIMIZED LAYERS ───────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#020202" },
+  glassToggle: {
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(211,176,122,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    zIndex: 100,
+  },
+  toggleGlow: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    borderRadius: moderateScale(24),
+    backgroundColor: "#D3B07A",
+    shadowColor: "#D3B07A",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 15,
+  },
+  hudCircle: {
+    position: "absolute",
+    width: width * 1.5,
+    height: width * 1.5,
+    borderRadius: width * 0.75,
+    borderWidth: moderateScale(2),
+    borderColor: "#D3B07A",
+    top: height / 2 - width * 0.75,
+    left: width / 2 - width * 0.75,
+  },
+  player: {
+    position: "absolute",
+    width: PLAYER_SIZE,
+    height: PLAYER_SIZE,
+    borderRadius: moderateScale(4),
+    backgroundColor: "#D3B07A",
+    borderWidth: moderateScale(2),
+    borderColor: "#FFF",
+    shadowColor: "#D3B07A",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: moderateScale(10),
+    elevation: moderateScale(15),
+  },
+  enemy: {
+    position: "absolute",
+    width: ENEMY_SIZE,
+    height: ENEMY_SIZE,
+    borderRadius: moderateScale(2),
+    backgroundColor: "#FF0042",
+    // Optimization: simplify shadow for high-density rendering (prevents Wave 5 GPU lag)
+    shadowColor: "#FF0042",
+    shadowOpacity: 0.6,
+    shadowRadius: moderateScale(2),
+  },
+  playingHUD: { position: "absolute", top: moderateScale(50), left: moderateScale(20), right: moderateScale(20) },
+  hudTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(211,176,122,0.2)",
+    paddingBottom: moderateScale(10),
+  },
+  hudLabel: {
+    color: "rgba(211,176,122,0.5)",
+    fontSize: moderateScale(10),
+    letterSpacing: 2,
+    fontWeight: "700",
+  },
+  hudValue: {
+    color: "#D3B07A",
+    fontSize: moderateScale(24),
+    fontFamily: "Orbitron",
+    letterSpacing: 1,
+  },
+  multiplierBadge: {
+    position: "absolute",
+    top: moderateScale(60),
+    alignSelf: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(211,176,122,0.15)",
+    paddingHorizontal: moderateScale(20),
+    paddingVertical: moderateScale(10),
+    borderRadius: moderateScale(4),
+    borderWidth: 1,
+    borderColor: "rgba(211,176,122,0.4)",
+  },
+  multiplierText: {
+    color: "#FFF",
+    fontSize: moderateScale(32),
+    fontFamily: "Orbitron",
+    textShadowColor: "#D3B07A",
+    textShadowRadius: 10,
+  },
+  multiplierLabel: {
+    color: "#D3B07A",
+    fontSize: moderateScale(8),
+    letterSpacing: 3,
+    fontWeight: "bold",
+    marginTop: 2,
+  },
+  shockwave: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: "#D3B07A",
+  },
+  powerup: {
+    position: "absolute",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#00E5FF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#00E5FF",
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  playerShield: {
+    position: "absolute",
+    width: PLAYER_SIZE + 10,
+    height: PLAYER_SIZE + 10,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#00E5FF",
+    backgroundColor: "rgba(0, 229, 255, 0.1)",
+  },
+
+  // countdown
+  countdownOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#020202",
+  },
+  countdownNumber: {
+    color: "#FFF",
+    fontSize: moderateScale(120),
+    fontFamily: "Orbitron",
+    letterSpacing: -4,
+    textShadowColor: "#D3B07A",
+    textShadowRadius: moderateScale(30),
+  },
+  countdownSub: {
+    color: "rgba(211,176,122,0.4)",
+    fontSize: moderateScale(12),
+    letterSpacing: 5,
+    marginTop: moderateScale(10),
+  },
+
+  overlay: {
+    flex: 1,
+    padding: moderateScale(30),
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#020202",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footer: { position: "absolute", bottom: moderateScale(30), width: "100%", alignItems: "center" },
+  copyright: {
+    color: "rgba(211,176,122,0.4)",
+    fontSize: moderateScale(9),
+    letterSpacing: 5,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  waveFlashContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  waveFlashText: {
+    color: "#FFF",
+    fontSize: moderateScale(44),
+    fontFamily: "Orbitron",
+    letterSpacing: 10,
+  },
+  waveFlashBar: {
+    width: moderateScale(200),
+    height: moderateScale(2),
+    backgroundColor: "#D3B07A",
+    marginVertical: moderateScale(10),
+  },
+  waveFlashSub: {
+    color: "#D3B07A",
+    fontSize: moderateScale(10),
+    fontWeight: "600",
+    letterSpacing: 5,
+  },
+
+  // tutorial
+  tutOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.96)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  tutSkip: {
+    position: "absolute",
+    top: moderateScale(55),
+    right: moderateScale(28),
+    padding: moderateScale(10),
+    borderWidth: moderateScale(1),
+    borderColor: "rgba(211,176,122,0.3)",
+    borderRadius: moderateScale(4),
+  },
+  tutSkipText: {
+    color: "#D3B07A",
+    fontSize: moderateScale(11),
+    letterSpacing: 3,
+    fontFamily: "Orbitron",
+  },
+  tutCard: {
+    width: width - moderateScale(48),
+    backgroundColor: "#0a0a0a",
+    borderWidth: moderateScale(1),
+    borderColor: "rgba(255,255,255,0.06)",
+    borderRadius: moderateScale(4),
+    padding: moderateScale(32),
+    alignItems: "center",
+  },
+  tutIcon: { fontSize: moderateScale(52), marginBottom: moderateScale(16) },
+  tutTag: {
+    color: "rgba(255,255,255,0.25)",
+    fontSize: moderateScale(10),
+    letterSpacing: 4,
+    marginBottom: moderateScale(6),
+  },
+  tutTitle: {
+    color: "#FFF",
+    fontSize: moderateScale(22),
+    fontFamily: "Orbitron",
+    letterSpacing: 4,
+  },
+  tutTitleBar: { width: moderateScale(60), height: moderateScale(3), marginTop: moderateScale(10), marginBottom: moderateScale(20) },
+  tutBody: {
+    color: "rgba(255,255,255,0.65)",
+    fontSize: moderateScale(14),
+    lineHeight: moderateScale(22),
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+  tutDemoBox: {
+    marginTop: moderateScale(20),
+    width: moderateScale(200),
+    height: moderateScale(90),
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: moderateScale(4),
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tutDemoPlayer: {
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(4),
+    backgroundColor: "#D3B07A",
+    borderWidth: moderateScale(2),
+    borderColor: "#FFF",
+  },
+  tutFinger: { position: "absolute", top: moderateScale(15), left: moderateScale(25) },
+  tutFingerIcon: { fontSize: moderateScale(32), color: "rgba(255,255,255,0.7)" },
+  tutEnemyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: moderateScale(20),
+    gap: moderateScale(8),
+  },
+  tutEnemyDot: {
+    width: moderateScale(16),
+    height: moderateScale(16),
+    borderRadius: moderateScale(2),
+    backgroundColor: "#FF0042",
+  },
+  tutArrow: {
+    color: "#FF0042",
+    fontSize: moderateScale(22),
+    fontFamily: "Orbitron",
+    marginHorizontal: moderateScale(4),
+  },
+  tutPlayerDot: {
+    width: moderateScale(22),
+    height: moderateScale(22),
+    borderRadius: moderateScale(3),
+    backgroundColor: "#D3B07A",
+    borderWidth: moderateScale(2),
+    borderColor: "#FFF",
+  },
+  tutWaveRow: { flexDirection: "row", gap: moderateScale(10), marginTop: moderateScale(20) },
+  tutWaveChip: {
+    paddingVertical: moderateScale(8),
+    paddingHorizontal: moderateScale(14),
+    borderWidth: moderateScale(1),
+    borderColor: "rgba(211,176,122,0.3)",
+    borderRadius: moderateScale(3),
+    alignItems: "center",
+  },
+  tutWaveChipLabel: { color: "#D3B07A", fontSize: moderateScale(14), fontFamily: "Orbitron" },
+  tutWaveChipSpeed: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: moderateScale(9),
+    letterSpacing: 1,
+    marginTop: moderateScale(2),
+  },
+  tutHint: {
+    color: "rgba(255,255,255,0.25)",
+    fontSize: moderateScale(11),
+    letterSpacing: 2,
+    marginTop: moderateScale(20),
+    textAlign: "center",
+  },
+  tutDots: { flexDirection: "row", gap: moderateScale(8), marginTop: moderateScale(24) },
+  tutDot: {
+    width: moderateScale(6),
+    height: moderateScale(6),
+    borderRadius: moderateScale(3),
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  tutDotActive: { backgroundColor: "#D3B07A", width: moderateScale(20) },
+  tutBtn: {
+    marginTop: moderateScale(20),
+    paddingHorizontal: moderateScale(40),
+    paddingVertical: moderateScale(16),
+    borderWidth: moderateScale(2),
+    width: "100%",
+    alignItems: "center",
+  },
+  tutBtnText: { fontSize: moderateScale(14), fontWeight: "700", letterSpacing: 3 },
+
+  // PROFESSIONAL BRAIN STYLES
+  bgImage: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+  },
+  contentWrapper: {
+    width: "100%",
+    paddingHorizontal: moderateScale(24),
+    alignItems: "center",
+    flex: 1,
+  },
+  homeHeader: { alignItems: "center", marginBottom: moderateScale(80) },
+  neonSub: {
+    color: "#D3B07A",
+    fontSize: moderateScale(11),
+    letterSpacing: 5,
+    marginBottom: moderateScale(8),
+    fontFamily: "Orbitron",
+  },
+  titleMain: {
+    color: "#FDF8E7",
+    fontSize: moderateScale(48),
+    fontFamily: "Orbitron",
+    letterSpacing: 14,
+    textShadowColor: "rgba(253,248,231,0.5)",
+    textShadowRadius: moderateScale(15),
+  },
+  versionContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: moderateScale(10),
+    gap: moderateScale(12),
+  },
+  versionLine: {
+    width: moderateScale(40),
+    height: 1,
+    backgroundColor: "rgba(211,176,122,0.3)",
+  },
+  versionTag: {
+    color: "rgba(211,176,122,0.6)",
+    fontSize: moderateScale(10),
+    letterSpacing: 4,
+    fontWeight: "600",
+  },
+  championBanner: {
+    width: "100%",
+    backgroundColor: "rgba(255, 215, 0, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+    borderRadius: moderateScale(12),
+    padding: moderateScale(16),
+    alignItems: "center",
+    marginBottom: moderateScale(30),
+    overflow: "hidden",
+  },
+  championHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: moderateScale(8),
+    marginBottom: moderateScale(4),
+  },
+  championLabel: {
+    color: "#FFD700",
+    fontSize: moderateScale(9),
+    fontFamily: "Orbitron",
+    letterSpacing: 3,
+  },
+  championName: {
+    color: "#FFF",
+    fontSize: moderateScale(22),
+    fontFamily: "Orbitron",
+    letterSpacing: 6,
+    marginVertical: moderateScale(4),
+  },
+  championScoreBox: {
+    flexDirection: "row",
+    gap: moderateScale(15),
+    alignItems: "baseline",
+  },
+  championScore: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: moderateScale(12),
+    fontFamily: "Orbitron",
+  },
+  championWave: {
+    color: "#FFD700",
+    fontSize: moderateScale(10),
+    fontFamily: "Orbitron",
+    opacity: 0.8,
+  },
+  championGlow: {
+    position: "absolute",
+    top: -50,
+    width: "120%",
+    height: 100,
+    backgroundColor: "rgba(255, 215, 0, 0.1)",
+    transform: [{ rotate: "-15deg" }],
+    zIndex: -1,
+  },
+
+  dangerSub: {
+    color: "#FF4444",
+    fontSize: moderateScale(11),
+    letterSpacing: 5,
+    marginBottom: moderateScale(8),
+    fontFamily: "Orbitron",
+  },
+  dangerTitle: {
+    color: "#FDF8E7",
+    fontSize: moderateScale(32),
+    fontFamily: "Orbitron",
+    letterSpacing: 8,
+    textShadowColor: "rgba(255,0,66,0.6)",
+    textShadowRadius: moderateScale(20),
+  },
+
+  proCard: {
+    width: "100%",
+    backgroundColor: "#0D0506",
+    borderWidth: moderateScale(1),
+    borderColor: "rgba(255,100,100,0.1)",
+    borderRadius: moderateScale(16),
+    marginBottom: moderateScale(32),
+  },
+  proCardModal: {
+    width: "90%",
+    backgroundColor: "#080808",
+    borderWidth: moderateScale(1),
+    borderColor: "rgba(211,176,122,0.2)",
+    borderRadius: moderateScale(8),
+    overflow: "hidden",
+  },
+  proCardModalLarge: {
+    width: "95%",
+    maxHeight: height * 0.8,
+    backgroundColor: "#080808",
+    borderWidth: moderateScale(1),
+    borderColor: "rgba(255,215,0,0.2)",
+    borderRadius: moderateScale(12),
+    overflow: "hidden",
+    padding: moderateScale(10),
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: moderateScale(16),
+    paddingHorizontal: moderateScale(20),
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,100,100,0.05)",
+  },
+  cardTitle: {
+    color: "#D3B07A",
+    fontSize: moderateScale(10),
+    letterSpacing: 3,
+    fontWeight: "700",
+  },
+  chartBtn: {
+    backgroundColor: "rgba(255,100,100,0.1)",
+    padding: moderateScale(8),
+    borderRadius: moderateScale(6),
+  },
+  cardTitleGold: {
+    color: "#e3b007",
+    fontSize: moderateScale(11),
+    letterSpacing: 4,
+    fontFamily: "Orbitron",
+    textAlign: "center",
+  },
+  cardBody: { padding: moderateScale(24) },
+
+  cardStatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  cardStatItem: { alignItems: "center", flex: 1 },
+  statDivider: {
+    width: 1,
+    height: moderateScale(50),
+    backgroundColor: "rgba(255,100,100,0.1)",
+  },
+  statLabel: {
+    color: "rgba(211,176,122,0.6)",
+    fontSize: moderateScale(9),
+    letterSpacing: 2,
+    marginBottom: moderateScale(10),
+    fontWeight: "600",
+  },
+  statValue: { color: "#FFF", fontSize: moderateScale(36), fontFamily: "Orbitron" },
+  scoreUnderline: {
+    width: moderateScale(30),
+    height: 2,
+    backgroundColor: "#D3B07A",
+    marginTop: moderateScale(8),
+  },
+  rankContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  wreathBadge: {
+    width: moderateScale(200),
+    height: moderateScale(100),
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  gridRow: { flexDirection: "row", justifyContent: "space-between" },
+  gridItem: { alignItems: "center" },
+
+  homeActions: { width: "100%", gap: moderateScale(16) },
+  secondaryRow: { flexDirection: "row", gap: moderateScale(12) },
+
+  primaryBtn: {
+    height: moderateScale(64),
+    width: "100%",
+    backgroundColor: "#3A0815",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: moderateScale(16),
+    borderWidth: 1,
+    borderColor: "rgba(255,100,100,0.2)",
+    shadowColor: "#FF0042",
+    shadowOpacity: 0.3,
+    shadowRadius: moderateScale(20),
+    elevation: moderateScale(8),
+  },
+  primaryBtnText: {
+    color: "#FFF",
+    fontSize: moderateScale(18),
+    fontFamily: "Orbitron",
+    letterSpacing: 4,
+  },
+
+  primaryBtnRed: {
+    height: moderateScale(64),
+    width: "100%",
+    backgroundColor: "#5A0D1F",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: moderateScale(16),
+    borderWidth: 1,
+    borderColor: "rgba(255,100,100,0.3)",
+  },
+  primaryBtnTextRed: {
+    color: "#FFF",
+    fontSize: moderateScale(18),
+    fontFamily: "Orbitron",
+    letterSpacing: 4,
+  },
+
+  primaryBtnGold: {
+    height: moderateScale(64),
+    width: "100%",
+    backgroundColor: "#D3B07A",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: moderateScale(16),
+  },
+  primaryBtnTextGold: {
+    color: "#1A0A0A",
+    fontSize: moderateScale(16),
+    fontFamily: "Orbitron",
+    letterSpacing: 3,
+  },
+
+  outlineBtn: {
+    height: moderateScale(54),
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "rgba(211,176,122,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    borderRadius: moderateScale(12),
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  outlineBtnText: {
+    color: "#E4C79F",
+    fontSize: moderateScale(11),
+    fontFamily: "Orbitron",
+    letterSpacing: 2,
+  },
+
+  outlineBtnGold: {
+    height: moderateScale(54),
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    borderRadius: moderateScale(12),
+    backgroundColor: "#E4C79F",
+  },
+  outlineBtnTextGold: {
+    color: "#2A1B10",
+    fontSize: moderateScale(11),
+    fontFamily: "Orbitron",
+    letterSpacing: 2,
+  },
+
+  inputContainer: {
+    width: "100%",
+    borderBottomWidth: 2,
+    borderBottomColor: "#D3B07A",
+    marginTop: moderateScale(20),
+  },
+  lbInput: {
+    color: "#D3B07A",
+    fontSize: moderateScale(24),
+    fontFamily: "Orbitron",
+    letterSpacing: 6,
+    textAlign: "center",
+    paddingVertical: moderateScale(12),
+  },
+  modalSub: { color: "rgba(255,255,255,0.4)", fontSize: moderateScale(12), letterSpacing: 2 },
+  dimBtnText: {
+    color: "#444",
+    fontSize: moderateScale(12),
+    letterSpacing: 2,
+    fontWeight: "700",
+  },
+  cyan: { color: "#D3B07A", fontWeight: "bold" },
+
+  proLbRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: moderateScale(14),
+    paddingHorizontal: moderateScale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  rowGold: { backgroundColor: "rgba(255,215,0,0.03)" },
+  proLbRank: {
+    fontSize: moderateScale(18),
+    width: moderateScale(30),
+    fontFamily: "Orbitron",
+    color: "rgba(255,255,255,0.2)",
+  },
+  proLbName: {
+    color: "#FFF",
+    fontSize: moderateScale(15),
+    fontWeight: "700",
+    letterSpacing: 2,
+  },
+  proLbMeta: {
+    color: "rgba(255,255,255,0.2)",
+    fontSize: moderateScale(10),
+    letterSpacing: 2,
+    marginTop: moderateScale(2),
+  },
+  proLbScore: { color: "#D3B07A", fontSize: moderateScale(22), fontWeight: "900", fontFamily: "Orbitron" },
+  hudScore: {
+    color: "#FFF",
+    fontSize: moderateScale(22),
+    fontFamily: "Orbitron",
+    textShadowColor: "rgba(211, 176, 122, 0.5)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  lbEmpty: {
+    color: "#333",
+    fontSize: moderateScale(14),
+    letterSpacing: 2,
+    textAlign: "center",
+    marginVertical: moderateScale(40),
+    lineHeight: moderateScale(22),
+  },
+});
 
 function getEnemySpeed(score: number): number {
   const waveIndex = Math.floor(score / WAVE_SIZE);
   const progress = (score % WAVE_SIZE) / WAVE_SIZE;
   const wavePeak = WAVE1_PEAK + waveIndex * WAVE_PEAK_STEP;
   const prevPeak = WAVE1_PEAK + (waveIndex - 1) * WAVE_PEAK_STEP;
-  const waveStart = waveIndex === 0 ? WAVE1_START : prevPeak * RESET_FACTOR;
+
+  // Each wave transitions with a 40% reset (RESET_FACTOR=0.6).
+  // Every 10th wave (W10, W20, etc.) triggers a "Double Reset" (70% reduction).
+  const isMegaReset = waveIndex > 0 && (waveIndex + 1) % 10 === 0;
+  const resetFactor = isMegaReset ? 0.3 : RESET_FACTOR;
+  const waveStart = waveIndex === 0 ? WAVE1_START : prevPeak * resetFactor;
+
   return waveStart + (wavePeak - waveStart) * progress;
 }
 function getSpawnRate(score: number): number {
@@ -159,6 +883,7 @@ interface Entity {
   isSniper?: boolean;
 }
 
+
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 const SKINS = [
   { id: "default", color: "#D3B07A", name: "COBALT-GOLD", power: "Standard", desc: "Standard issue Pilot Core. No active powers." },
@@ -172,6 +897,82 @@ const SKINS = [
   { id: "obsidian", color: "#1A1A1A", name: "OBSIDIAN-BLACK", xpRequired: 7500000, power: "Void Pulse", desc: "Automatic screen-wide EMP burst triggers every 500 session points." },
   { id: "prism", color: "#FF00FF", name: "PRISMATIC-VOID", xpRequired: 10000000, power: "Omega Protocol", desc: "Multipliers never reset. Start every sector with 3 Shields." },
 ];
+
+const HUDLayer = React.memo(({ score, wave, multiplier, charges }: any) => {
+  return (
+    <View style={styles.playingHUD}>
+      <View style={styles.hudTop}>
+        <View>
+          <Text style={styles.hudLabel}>SESSION SCORE</Text>
+          <Text style={styles.hudValue}>{score.toString().padStart(5, "0")}</Text>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text style={styles.hudLabel}>SECTOR WAVE</Text>
+          <Text style={styles.hudValue}>0{wave}</Text>
+        </View>
+      </View>
+      
+      {multiplier > 1 && (
+        <View style={styles.multiplierBadge}>
+          <Text style={styles.multiplierText}>{multiplier}x</Text>
+          <Text style={styles.multiplierLabel}>REFLEX BOOST</Text>
+        </View>
+      )}
+
+      <View style={{ flexDirection: "row", gap: 4, marginTop: 4, justifyContent: "center" }}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <View 
+            key={i} 
+            style={{ 
+              width: 8, height: 4, 
+              backgroundColor: charges >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
+              borderRadius: 2,
+              shadowColor: "#00E5FF",
+              shadowRadius: charges >= i ? 4 : 0,
+              shadowOpacity: 0.8
+            }} 
+          />
+        ))}
+      </View>
+    </View>
+  );
+});
+
+const PlayingLayer = ({ enemies, powerups, playerPos, hasShield, score, wave, multiplier, charges }: any) => {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {enemies.map((enemy: any) => (
+        <View
+          key={enemy.id}
+          renderToHardwareTextureAndroid={true}
+          style={[
+            styles.enemy,
+            {
+              backgroundColor: enemy.isSniper ? "#FFD700" : "#FF0042",
+              shadowColor: enemy.isSniper ? "#FFD700" : "#FF0042",
+              transform: [
+                { translateX: enemy.x - ENEMY_SIZE / 2 },
+                { translateY: enemy.y - ENEMY_SIZE / 2 },
+              ],
+            },
+          ]}
+        />
+      ))}
+      {powerups.map((p: any) => (
+        <View
+          key={p.id}
+          style={[styles.powerup, { left: p.x - 10, top: p.y - 10 }]}
+        >
+          <Ionicons name="shield-checkmark" size={16} color="#FFF" />
+        </View>
+      ))}
+      {hasShield && (
+        <View style={[styles.playerShield, { left: playerPos.x - PLAYER_SIZE/2 - 5, top: playerPos.y - PLAYER_SIZE/2 - 5 }]} />
+      )}
+      <HUDLayer score={score} wave={wave} multiplier={multiplier} charges={charges} />
+    </View>
+  );
+};
 
 export default function ArenaGame() {
   const [fontsLoaded] = useFonts({
@@ -205,7 +1006,9 @@ export default function ArenaGame() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const multiplierRef = useRef(1);
+  const lastHapticTime = useRef(0);
   const lastDodgeTime = useRef(0);
+  const lastFrameTime = useRef(0);
   const multiplierPulse = useRef(new Animated.Value(1)).current;
   const dodgeShockwave = useRef(new Animated.Value(0)).current;
   const dodgeShockPos = useRef({ x: 0, y: 0 });
@@ -799,6 +1602,7 @@ export default function ArenaGame() {
     // --- RESET ALL GAME STATE (PROPER NEW SESSION) ---
     thunderPulse.setValue(0);
     lastPowerupSpawn.current = Date.now();
+    lastFrameTime.current = 0;
     
     // Reset Wave Flash UI
     waveFlashOpacity.setValue(0);
@@ -843,6 +1647,8 @@ export default function ArenaGame() {
   const update = useCallback(() => {
     if (stateRef.current !== "playing") return;
     const now = Date.now();
+    const frameDT = lastFrameTime.current === 0 ? 1 : (now - lastFrameTime.current) / 16.66;
+    lastFrameTime.current = now;
 
     if (now - lastScoreTick.current > SCORE_TICK_MS) {
       const currentSkin = currentSkinRef.current;
@@ -902,7 +1708,7 @@ export default function ArenaGame() {
       lastSpawnTime.current = now;
     }
 
-    if (now - lastPowerupSpawn.current > 15000 && Math.random() < 0.2) {
+    if (now - lastPowerupSpawn.current > 13000 && Math.random() < 0.2) {
       powerups.current.push({ 
         id: nextId.current++, 
         x: Math.random() * (width - 60) + 30, 
@@ -986,8 +1792,8 @@ export default function ArenaGame() {
 
       if (dSq > 1) {
         d = Math.sqrt(dSq);
-        e.x += (dx / d) * enemySpeed;
-        e.y += (dy / d) * enemySpeed;
+        e.x += (dx / d) * enemySpeed * frameDT;
+        e.y += (dy / d) * enemySpeed * frameDT;
       }
       
       // SONIC TRAIL: Chrome Kill zone (within 45px while moving fast)
@@ -1098,8 +1904,12 @@ export default function ArenaGame() {
       setIsPlayingLobbyBgmEnabled(false);
       
       triggerShake();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      const hNow = Date.now();
+      if (hNow - lastHapticTime.current > 100) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        lastHapticTime.current = hNow;
+      }
       pendingScore.current = currentScore.current;
       pendingWave.current = lastWave.current + 1;
       commitScore(currentPlayerRef.current, currentScore.current, lastWave.current + 1, false);
@@ -1107,16 +1917,9 @@ export default function ArenaGame() {
       setGameState("gameover");
       setIsStarting(false);
     } else {
-      const enemyCount = enemies.current.length;
-      // Adaptive render throttle:
-      // More enemies => fewer React re-renders => physics loop stays responsive.
-      // Player layer is separate — updates at full touch rate (120fps) regardless.
-      const desiredFps = enemyCount >= 26 ? 30 : enemyCount >= 18 ? 40 : 60;
-      const intervalMs = 1000 / desiredFps;
-      if (now - lastRenderMsRef.current >= intervalMs) {
-        lastRenderMsRef.current = now;
-        setFrame((f) => f + 1);
-      }
+      // 120 FPS UNLOCKED: Synchronize visual state with every physics tick.
+      // We rely on memoization of HUD and static elements to keep performance high.
+      setFrame((f) => f + 1);
       requestRef.current = requestAnimationFrame(update);
     }
   }, [
@@ -1301,91 +2104,19 @@ export default function ArenaGame() {
         ]}
       />
 
-      {/* ── PLAYING (enemies, powerups, HUD — throttled by setFrame) ── */}
+      {/* ── PLAYING LAYER (OPTIMIZED) ── */}
       {gameState === "playing" && (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {enemies.current.map((enemy) => (
-            <View
-              key={enemy.id}
-              renderToHardwareTextureAndroid={true}
-              shouldRasterizeIOS={true}
-              style={[
-                styles.enemy,
-                {
-                  backgroundColor: enemy.isSniper ? "#FFD700" : "#FF0042",
-                  shadowColor: enemy.isSniper ? "#FFD700" : "#FF0042",
-                  transform: [
-                    { translateX: enemy.x - ENEMY_SIZE / 2 },
-                    { translateY: enemy.y - ENEMY_SIZE / 2 },
-                  ],
-                },
-              ]}
-            />
-          ))}
-          {powerups.current.map((p) => (
-            <View
-              key={p.id}
-              style={[
-                styles.powerup,
-                { left: p.x - 10, top: p.y - 10 }
-              ]}
-            >
-              <Ionicons name="shield-checkmark" size={16} color="#FFF" />
-            </View>
-          ))}
-          {hasShieldVal && (
-            <View style={[styles.playerShield, { left: playerPos.current.x - PLAYER_SIZE/2 - 5, top: playerPos.current.y - PLAYER_SIZE/2 - 5 }]} />
-          )}
-          <View style={styles.playingHUD}>
-            <View style={styles.hudTop}>
-              <View>
-                <Text style={styles.hudLabel}>SESSION SCORE</Text>
-                <Text style={styles.hudValue}>
-                  {score.toString().padStart(5, "0")}
-                </Text>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.hudLabel}>SECTOR WAVE</Text>
-                <Text style={styles.hudValue}>0{waveNumber}</Text>
-              </View>
-            </View>
-            
-            {multiplierVal > 1 && (
-              <Animated.View style={[styles.multiplierBadge, { transform: [{ scale: multiplierPulse }] }]}>
-                <Text style={styles.multiplierText}>{multiplierVal}x</Text>
-                <Text style={styles.multiplierLabel}>REFLEX BOOST</Text>
-              </Animated.View>
-            )}
-
-            {/* Thunder Charge Indicator */}
-            <Animated.View style={{ 
-              flexDirection: "row", 
-              gap: 4, 
-              marginTop: 4, 
-              justifyContent: "center",
-              transform: [{ 
-                scale: (thunderChargeVal >= 5) ? thunderPulse.interpolate({ 
-                  inputRange: [0, 1], 
-                  outputRange: [1, 1.3] 
-                }) : 1 
-              }]
-            }}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <View 
-                  key={i} 
-                  style={{ 
-                    width: 8, 
-                    height: 4, 
-                    backgroundColor: thunderChargeVal >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
-                    borderRadius: 2,
-                    shadowColor: "#00E5FF",
-                    shadowRadius: thunderChargeVal >= i ? 4 : 0,
-                    shadowOpacity: 0.8
-                  }} 
-                />
-              ))}
-            </Animated.View>
-          </View>
+        <>
+          <PlayingLayer 
+            enemies={[...enemies.current]} 
+            powerups={[...powerups.current]}
+            playerPos={playerPos.current}
+            hasShield={hasShieldVal}
+            score={score}
+            wave={waveNumber}
+            multiplier={multiplierVal}
+            charges={thunderChargeVal}
+          />
 
           {/* DODGE SHOCKWAVE */}
           <Animated.View
@@ -1423,7 +2154,7 @@ export default function ArenaGame() {
               {waveFlashLabel.current === "THUNDER STRIKE!" ? "SYSTEM OVERLOAD: HYPER-CHARGE" : "SYSTEM THROTTLE RESET"}
             </Text>
           </Animated.View>
-        </View>
+        </>
       )}
 
       {/* ── PLAYER LAYER (120fps — independent of enemy re-renders) ── */}
@@ -2326,720 +3057,3 @@ export default function ArenaGame() {
 }
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#020202" },
-  glassToggle: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(24),
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(211,176,122,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    zIndex: 100,
-  },
-  toggleGlow: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    borderRadius: moderateScale(24),
-    backgroundColor: "#D3B07A",
-    shadowColor: "#D3B07A",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 15,
-  },
-  hudCircle: {
-    position: "absolute",
-    width: width * 1.5,
-    height: width * 1.5,
-    borderRadius: width * 0.75,
-    borderWidth: moderateScale(2),
-    borderColor: "#D3B07A",
-    top: height / 2 - width * 0.75,
-    left: width / 2 - width * 0.75,
-  },
-  player: {
-    position: "absolute",
-    width: PLAYER_SIZE,
-    height: PLAYER_SIZE,
-    borderRadius: moderateScale(4),
-    backgroundColor: "#D3B07A",
-    borderWidth: moderateScale(2),
-    borderColor: "#FFF",
-    shadowColor: "#D3B07A",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: moderateScale(10),
-    elevation: moderateScale(15),
-  },
-  enemy: {
-    position: "absolute",
-    width: ENEMY_SIZE,
-    height: ENEMY_SIZE,
-    borderRadius: moderateScale(2),
-    backgroundColor: "#FF0042",
-    // Optimization: simplify shadow for high-density rendering (prevents Wave 5 GPU lag)
-    shadowColor: "#FF0042",
-    shadowOpacity: 0.6,
-    shadowRadius: moderateScale(2),
-  },
-  playingHUD: { position: "absolute", top: moderateScale(50), left: moderateScale(20), right: moderateScale(20) },
-  hudTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(211,176,122,0.2)",
-    paddingBottom: moderateScale(10),
-  },
-  hudLabel: {
-    color: "rgba(211,176,122,0.5)",
-    fontSize: moderateScale(10),
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
-  hudValue: {
-    color: "#D3B07A",
-    fontSize: moderateScale(24),
-    fontFamily: "Orbitron",
-    letterSpacing: 1,
-  },
-  multiplierBadge: {
-    position: "absolute",
-    top: moderateScale(60),
-    alignSelf: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(211,176,122,0.15)",
-    paddingHorizontal: moderateScale(20),
-    paddingVertical: moderateScale(10),
-    borderRadius: moderateScale(4),
-    borderWidth: 1,
-    borderColor: "rgba(211,176,122,0.4)",
-  },
-  multiplierText: {
-    color: "#FFF",
-    fontSize: moderateScale(32),
-    fontFamily: "Orbitron",
-    textShadowColor: "#D3B07A",
-    textShadowRadius: 10,
-  },
-  multiplierLabel: {
-    color: "#D3B07A",
-    fontSize: moderateScale(8),
-    letterSpacing: 3,
-    fontWeight: "bold",
-    marginTop: 2,
-  },
-  shockwave: {
-    position: "absolute",
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: "#D3B07A",
-  },
-  powerup: {
-    position: "absolute",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#00E5FF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#00E5FF",
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  playerShield: {
-    position: "absolute",
-    width: PLAYER_SIZE + 10,
-    height: PLAYER_SIZE + 10,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "#00E5FF",
-    backgroundColor: "rgba(0, 229, 255, 0.1)",
-  },
-
-  // countdown
-  countdownOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#020202",
-  },
-  countdownNumber: {
-    color: "#FFF",
-    fontSize: moderateScale(120),
-    fontFamily: "Orbitron",
-    letterSpacing: -4,
-    textShadowColor: "#D3B07A",
-    textShadowRadius: moderateScale(30),
-  },
-  countdownSub: {
-    color: "rgba(211,176,122,0.4)",
-    fontSize: moderateScale(12),
-    letterSpacing: 5,
-    marginTop: moderateScale(10),
-  },
-
-  overlay: {
-    flex: 1,
-    padding: moderateScale(30),
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#020202",
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.92)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  footer: { position: "absolute", bottom: moderateScale(30), width: "100%", alignItems: "center" },
-  copyright: {
-    color: "rgba(211,176,122,0.4)",
-    fontSize: moderateScale(9),
-    letterSpacing: 5,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-
-  waveFlashContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  waveFlashText: {
-    color: "#FFF",
-    fontSize: moderateScale(44),
-    fontFamily: "Orbitron",
-    letterSpacing: 10,
-  },
-  waveFlashBar: {
-    width: moderateScale(200),
-    height: moderateScale(2),
-    backgroundColor: "#D3B07A",
-    marginVertical: moderateScale(10),
-  },
-  waveFlashSub: {
-    color: "#D3B07A",
-    fontSize: moderateScale(10),
-    fontWeight: "600",
-    letterSpacing: 5,
-  },
-
-  // tutorial
-  tutOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.96)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 100,
-  },
-  tutSkip: {
-    position: "absolute",
-    top: moderateScale(55),
-    right: moderateScale(28),
-    padding: moderateScale(10),
-    borderWidth: moderateScale(1),
-    borderColor: "rgba(211,176,122,0.3)",
-    borderRadius: moderateScale(4),
-  },
-  tutSkipText: {
-    color: "#D3B07A",
-    fontSize: moderateScale(11),
-    letterSpacing: 3,
-    fontFamily: "Orbitron",
-  },
-  tutCard: {
-    width: width - moderateScale(48),
-    backgroundColor: "#0a0a0a",
-    borderWidth: moderateScale(1),
-    borderColor: "rgba(255,255,255,0.06)",
-    borderRadius: moderateScale(4),
-    padding: moderateScale(32),
-    alignItems: "center",
-  },
-  tutIcon: { fontSize: moderateScale(52), marginBottom: moderateScale(16) },
-  tutTag: {
-    color: "rgba(255,255,255,0.25)",
-    fontSize: moderateScale(10),
-    letterSpacing: 4,
-    marginBottom: moderateScale(6),
-  },
-  tutTitle: {
-    color: "#FFF",
-    fontSize: moderateScale(22),
-    fontFamily: "Orbitron",
-    letterSpacing: 4,
-  },
-  tutTitleBar: { width: moderateScale(60), height: moderateScale(3), marginTop: moderateScale(10), marginBottom: moderateScale(20) },
-  tutBody: {
-    color: "rgba(255,255,255,0.65)",
-    fontSize: moderateScale(14),
-    lineHeight: moderateScale(22),
-    textAlign: "center",
-    letterSpacing: 0.5,
-  },
-  tutDemoBox: {
-    marginTop: moderateScale(20),
-    width: moderateScale(200),
-    height: moderateScale(90),
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderRadius: moderateScale(4),
-    overflow: "hidden",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  tutDemoPlayer: {
-    width: moderateScale(28),
-    height: moderateScale(28),
-    borderRadius: moderateScale(4),
-    backgroundColor: "#D3B07A",
-    borderWidth: moderateScale(2),
-    borderColor: "#FFF",
-  },
-  tutFinger: { position: "absolute", top: moderateScale(15), left: moderateScale(25) },
-  tutFingerIcon: { fontSize: moderateScale(32), color: "rgba(255,255,255,0.7)" },
-  tutEnemyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: moderateScale(20),
-    gap: moderateScale(8),
-  },
-  tutEnemyDot: {
-    width: moderateScale(16),
-    height: moderateScale(16),
-    borderRadius: moderateScale(2),
-    backgroundColor: "#FF0042",
-  },
-  tutArrow: {
-    color: "#FF0042",
-    fontSize: moderateScale(22),
-    fontFamily: "Orbitron",
-    marginHorizontal: moderateScale(4),
-  },
-  tutPlayerDot: {
-    width: moderateScale(22),
-    height: moderateScale(22),
-    borderRadius: moderateScale(3),
-    backgroundColor: "#D3B07A",
-    borderWidth: moderateScale(2),
-    borderColor: "#FFF",
-  },
-  tutWaveRow: { flexDirection: "row", gap: moderateScale(10), marginTop: moderateScale(20) },
-  tutWaveChip: {
-    paddingVertical: moderateScale(8),
-    paddingHorizontal: moderateScale(14),
-    borderWidth: moderateScale(1),
-    borderColor: "rgba(211,176,122,0.3)",
-    borderRadius: moderateScale(3),
-    alignItems: "center",
-  },
-  tutWaveChipLabel: { color: "#D3B07A", fontSize: moderateScale(14), fontFamily: "Orbitron" },
-  tutWaveChipSpeed: {
-    color: "rgba(255,255,255,0.35)",
-    fontSize: moderateScale(9),
-    letterSpacing: 1,
-    marginTop: moderateScale(2),
-  },
-  tutHint: {
-    color: "rgba(255,255,255,0.25)",
-    fontSize: moderateScale(11),
-    letterSpacing: 2,
-    marginTop: moderateScale(20),
-    textAlign: "center",
-  },
-  tutDots: { flexDirection: "row", gap: moderateScale(8), marginTop: moderateScale(24) },
-  tutDot: {
-    width: moderateScale(6),
-    height: moderateScale(6),
-    borderRadius: moderateScale(3),
-    backgroundColor: "rgba(255,255,255,0.15)",
-  },
-  tutDotActive: { backgroundColor: "#D3B07A", width: moderateScale(20) },
-  tutBtn: {
-    marginTop: moderateScale(20),
-    paddingHorizontal: moderateScale(40),
-    paddingVertical: moderateScale(16),
-    borderWidth: moderateScale(2),
-    width: "100%",
-    alignItems: "center",
-  },
-  tutBtnText: { fontSize: moderateScale(14), fontWeight: "700", letterSpacing: 3 },
-
-  // PROFESSIONAL BRAIN STYLES
-  bgImage: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-  },
-  contentWrapper: {
-    width: "100%",
-    paddingHorizontal: moderateScale(24),
-    alignItems: "center",
-    flex: 1,
-  },
-  homeHeader: { alignItems: "center", marginBottom: moderateScale(80) },
-  neonSub: {
-    color: "#D3B07A",
-    fontSize: moderateScale(11),
-    letterSpacing: 5,
-    marginBottom: moderateScale(8),
-    fontFamily: "Orbitron",
-  },
-  titleMain: {
-    color: "#FDF8E7",
-    fontSize: moderateScale(48),
-    fontFamily: "Orbitron",
-    letterSpacing: 14,
-    textShadowColor: "rgba(253,248,231,0.5)",
-    textShadowRadius: moderateScale(15),
-  },
-  versionContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: moderateScale(10),
-    gap: moderateScale(12),
-  },
-  versionLine: {
-    width: moderateScale(40),
-    height: 1,
-    backgroundColor: "rgba(211,176,122,0.3)",
-  },
-  versionTag: {
-    color: "rgba(211,176,122,0.6)",
-    fontSize: moderateScale(10),
-    letterSpacing: 4,
-    fontWeight: "600",
-  },
-  championBanner: {
-    width: "100%",
-    backgroundColor: "rgba(255, 215, 0, 0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.3)",
-    borderRadius: moderateScale(12),
-    padding: moderateScale(16),
-    alignItems: "center",
-    marginBottom: moderateScale(30),
-    overflow: "hidden",
-  },
-  championHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: moderateScale(8),
-    marginBottom: moderateScale(4),
-  },
-  championLabel: {
-    color: "#FFD700",
-    fontSize: moderateScale(9),
-    fontFamily: "Orbitron",
-    letterSpacing: 3,
-  },
-  championName: {
-    color: "#FFF",
-    fontSize: moderateScale(22),
-    fontFamily: "Orbitron",
-    letterSpacing: 6,
-    marginVertical: moderateScale(4),
-  },
-  championScoreBox: {
-    flexDirection: "row",
-    gap: moderateScale(15),
-    alignItems: "baseline",
-  },
-  championScore: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: moderateScale(12),
-    fontFamily: "Orbitron",
-  },
-  championWave: {
-    color: "#FFD700",
-    fontSize: moderateScale(10),
-    fontFamily: "Orbitron",
-    opacity: 0.8,
-  },
-  championGlow: {
-    position: "absolute",
-    top: -50,
-    width: "120%",
-    height: 100,
-    backgroundColor: "rgba(255, 215, 0, 0.1)",
-    transform: [{ rotate: "-15deg" }],
-    zIndex: -1,
-  },
-
-  dangerSub: {
-    color: "#FF4444",
-    fontSize: moderateScale(11),
-    letterSpacing: 5,
-    marginBottom: moderateScale(8),
-    fontFamily: "Orbitron",
-  },
-  dangerTitle: {
-    color: "#FDF8E7",
-    fontSize: moderateScale(32),
-    fontFamily: "Orbitron",
-    letterSpacing: 8,
-    textShadowColor: "rgba(255,0,66,0.6)",
-    textShadowRadius: moderateScale(20),
-  },
-
-  proCard: {
-    width: "100%",
-    backgroundColor: "#0D0506",
-    borderWidth: moderateScale(1),
-    borderColor: "rgba(255,100,100,0.1)",
-    borderRadius: moderateScale(16),
-    marginBottom: moderateScale(32),
-  },
-  proCardModal: {
-    width: "90%",
-    backgroundColor: "#080808",
-    borderWidth: moderateScale(1),
-    borderColor: "rgba(211,176,122,0.2)",
-    borderRadius: moderateScale(8),
-    overflow: "hidden",
-  },
-  proCardModalLarge: {
-    width: "95%",
-    maxHeight: height * 0.8,
-    backgroundColor: "#080808",
-    borderWidth: moderateScale(1),
-    borderColor: "rgba(255,215,0,0.2)",
-    borderRadius: moderateScale(12),
-    overflow: "hidden",
-    padding: moderateScale(10),
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: moderateScale(16),
-    paddingHorizontal: moderateScale(20),
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,100,100,0.05)",
-  },
-  cardTitle: {
-    color: "#D3B07A",
-    fontSize: moderateScale(10),
-    letterSpacing: 3,
-    fontWeight: "700",
-  },
-  chartBtn: {
-    backgroundColor: "rgba(255,100,100,0.1)",
-    padding: moderateScale(8),
-    borderRadius: moderateScale(6),
-  },
-  cardTitleGold: {
-    color: "#e3b007",
-    fontSize: moderateScale(11),
-    letterSpacing: 4,
-    fontFamily: "Orbitron",
-    textAlign: "center",
-  },
-  cardBody: { padding: moderateScale(24) },
-
-  cardStatRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-  },
-  cardStatItem: { alignItems: "center", flex: 1 },
-  statDivider: {
-    width: 1,
-    height: moderateScale(50),
-    backgroundColor: "rgba(255,100,100,0.1)",
-  },
-  statLabel: {
-    color: "rgba(211,176,122,0.6)",
-    fontSize: moderateScale(9),
-    letterSpacing: 2,
-    marginBottom: moderateScale(10),
-    fontWeight: "600",
-  },
-  statValue: { color: "#FFF", fontSize: moderateScale(36), fontFamily: "Orbitron" },
-  scoreUnderline: {
-    width: moderateScale(30),
-    height: 2,
-    backgroundColor: "#D3B07A",
-    marginTop: moderateScale(8),
-  },
-  rankContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  wreathBadge: {
-    width: moderateScale(200),
-    height: moderateScale(100),
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  gridRow: { flexDirection: "row", justifyContent: "space-between" },
-  gridItem: { alignItems: "center" },
-
-  homeActions: { width: "100%", gap: moderateScale(16) },
-  secondaryRow: { flexDirection: "row", gap: moderateScale(12) },
-
-  primaryBtn: {
-    height: moderateScale(64),
-    width: "100%",
-    backgroundColor: "#3A0815",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: moderateScale(16),
-    borderWidth: 1,
-    borderColor: "rgba(255,100,100,0.2)",
-    shadowColor: "#FF0042",
-    shadowOpacity: 0.3,
-    shadowRadius: moderateScale(20),
-    elevation: moderateScale(8),
-  },
-  primaryBtnText: {
-    color: "#FFF",
-    fontSize: moderateScale(18),
-    fontFamily: "Orbitron",
-    letterSpacing: 4,
-  },
-
-  primaryBtnRed: {
-    height: moderateScale(64),
-    width: "100%",
-    backgroundColor: "#5A0D1F",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: moderateScale(16),
-    borderWidth: 1,
-    borderColor: "rgba(255,100,100,0.3)",
-  },
-  primaryBtnTextRed: {
-    color: "#FFF",
-    fontSize: moderateScale(18),
-    fontFamily: "Orbitron",
-    letterSpacing: 4,
-  },
-
-  primaryBtnGold: {
-    height: moderateScale(64),
-    width: "100%",
-    backgroundColor: "#D3B07A",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: moderateScale(16),
-  },
-  primaryBtnTextGold: {
-    color: "#1A0A0A",
-    fontSize: moderateScale(16),
-    fontFamily: "Orbitron",
-    letterSpacing: 3,
-  },
-
-  outlineBtn: {
-    height: moderateScale(54),
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "rgba(211,176,122,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    borderRadius: moderateScale(12),
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  outlineBtnText: {
-    color: "#E4C79F",
-    fontSize: moderateScale(11),
-    fontFamily: "Orbitron",
-    letterSpacing: 2,
-  },
-
-  outlineBtnGold: {
-    height: moderateScale(54),
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    borderRadius: moderateScale(12),
-    backgroundColor: "#E4C79F",
-  },
-  outlineBtnTextGold: {
-    color: "#2A1B10",
-    fontSize: moderateScale(11),
-    fontFamily: "Orbitron",
-    letterSpacing: 2,
-  },
-
-  inputContainer: {
-    width: "100%",
-    borderBottomWidth: 2,
-    borderBottomColor: "#D3B07A",
-    marginTop: moderateScale(20),
-  },
-  lbInput: {
-    color: "#D3B07A",
-    fontSize: moderateScale(24),
-    fontFamily: "Orbitron",
-    letterSpacing: 6,
-    textAlign: "center",
-    paddingVertical: moderateScale(12),
-  },
-  modalSub: { color: "rgba(255,255,255,0.4)", fontSize: moderateScale(12), letterSpacing: 2 },
-  dimBtnText: {
-    color: "#444",
-    fontSize: moderateScale(12),
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
-  cyan: { color: "#D3B07A", fontWeight: "bold" },
-
-  proLbRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: moderateScale(14),
-    paddingHorizontal: moderateScale(16),
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.05)",
-  },
-  rowGold: { backgroundColor: "rgba(255,215,0,0.03)" },
-  proLbRank: {
-    fontSize: moderateScale(18),
-    width: moderateScale(30),
-    fontFamily: "Orbitron",
-    color: "rgba(255,255,255,0.2)",
-  },
-  proLbName: {
-    color: "#FFF",
-    fontSize: moderateScale(15),
-    fontWeight: "700",
-    letterSpacing: 2,
-  },
-  proLbMeta: {
-    color: "rgba(255,255,255,0.2)",
-    fontSize: moderateScale(10),
-    letterSpacing: 2,
-    marginTop: moderateScale(2),
-  },
-  proLbScore: { color: "#D3B07A", fontSize: moderateScale(22), fontWeight: "900", fontFamily: "Orbitron" },
-  hudScore: {
-    color: "#FFF",
-    fontSize: moderateScale(22),
-    fontFamily: "Orbitron",
-    textShadowColor: "rgba(211, 176, 122, 0.5)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  lbEmpty: {
-    color: "#333",
-    fontSize: moderateScale(14),
-    letterSpacing: 2,
-    textAlign: "center",
-    marginVertical: moderateScale(40),
-    lineHeight: moderateScale(22),
-  },
-});
