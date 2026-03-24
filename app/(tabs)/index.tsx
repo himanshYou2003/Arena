@@ -929,6 +929,7 @@ export default function ArenaGame() {
       const dSq = dx * dx + dy * dy;
       if (dSq < closestDistSq) closestDistSq = dSq;
       
+      // Optimization: use dSq directly for collision/dodge margin to avoid redundant Math.sqrt
       if (dSq < dodgeMarginSq && !collision && !e.nearMissTriggered) {
         
         // PHASE SHIFT: Invulnerability every 20 dodges (Fixed Phase 55 Ref Logic)
@@ -976,20 +977,22 @@ export default function ArenaGame() {
         Animated.timing(dodgeShockwave, { toValue: 1, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.quad) }).start();
       }
 
-      const d = Math.sqrt(dSq);
+      // Optimization: Only use Math.sqrt when absolutely needed for normalization
+      let d = 0;
       let enemySpeed = e.isSniper ? speed * 1.5 : speed;
       
       // SLO-MO Logic (Fixed Phase 55 Ref Accuracy)
       if (isSloMoRef.current) enemySpeed *= 0.4;
 
-      if (d > 1) {
+      if (dSq > 1) {
+        d = Math.sqrt(dSq);
         e.x += (dx / d) * enemySpeed;
         e.y += (dy / d) * enemySpeed;
       }
       
-      // SONIC TRAIL: Chrome Kill zone (within 40px while moving fast)
-      // We'll simulate this by checking if player is moving and skin is Chrome
-      if (skinId === "chrome" && d < 45) {
+      // SONIC TRAIL: Chrome Kill zone (within 45px while moving fast)
+      // dSq < Math.pow(45, 2) => dSq < 2025
+      if (skinId === "chrome" && dSq < 2025) {
          enemies.current.splice(i, 1);
          i--;
          continue;
@@ -1076,7 +1079,8 @@ export default function ArenaGame() {
            }
         }
 
-        if (dSq < Math.pow((PLAYER_SIZE + 20) / 2, 2)) {
+        const pickupRadiusSq = Math.pow((PLAYER_SIZE + 20) / 2, 2);
+        if (dSq < pickupRadiusSq) {
           const pType = (p as any).type;
           if (pType === "shield") {
             hasShieldRef.current = true;
@@ -1303,6 +1307,8 @@ export default function ArenaGame() {
           {enemies.current.map((enemy) => (
             <View
               key={enemy.id}
+              renderToHardwareTextureAndroid={true}
+              shouldRasterizeIOS={true}
               style={[
                 styles.enemy,
                 {
@@ -2378,9 +2384,10 @@ const styles = StyleSheet.create({
     height: ENEMY_SIZE,
     borderRadius: moderateScale(2),
     backgroundColor: "#FF0042",
+    // Optimization: simplify shadow for high-density rendering (prevents Wave 5 GPU lag)
     shadowColor: "#FF0042",
-    shadowOpacity: 0.8,
-    shadowRadius: moderateScale(5),
+    shadowOpacity: 0.6,
+    shadowRadius: moderateScale(2),
   },
   playingHUD: { position: "absolute", top: moderateScale(50), left: moderateScale(20), right: moderateScale(20) },
   hudTop: {

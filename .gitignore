@@ -41,3 +41,8 @@ app-example
 # generated native folders
 /ios
 /android
+/DATA_SAFETY_FORM.txt
+/androidKeyStore.txt
+/PRIVACY_POLICY.txt
+/description-info.md
+
