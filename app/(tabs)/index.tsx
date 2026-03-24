@@ -204,16 +204,13 @@ export default function ArenaGame() {
   const [isStarting, setIsStarting] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
-  const [multiplier, setMultiplier] = useState(1);
   const multiplierRef = useRef(1);
   const lastDodgeTime = useRef(0);
   const multiplierPulse = useRef(new Animated.Value(1)).current;
   const dodgeShockwave = useRef(new Animated.Value(0)).current;
   const dodgeShockPos = useRef({ x: 0, y: 0 });
-  const [hasShield, setHasShield] = useState(false);
   const powerups = useRef<Entity[]>([]);
   const lastPowerupSpawn = useRef(0);
-  const [thunderCharge, setThunderCharge] = useState(0);
   const thunderPulse = useRef(new Animated.Value(0)).current;
   // Leaderboard & Profiles
   const [profiles, setProfiles] = useState<Profiles>({});
@@ -240,18 +237,11 @@ export default function ArenaGame() {
   const hasShieldRef = useRef(false);
   const thunderChargeRef = useRef(0);
   const currentSkinRef = useRef("default");
-  useEffect(() => { hasShieldRef.current = hasShield; }, [hasShield]);
-  useEffect(() => { thunderChargeRef.current = thunderCharge; }, [thunderCharge]);
   useEffect(() => { currentSkinRef.current = profiles[currentPlayer]?.currentSkin || "default"; }, [profiles, currentPlayer]);
   const isSoundEnabledRef = useRef(true);
   useEffect(() => { isSoundEnabledRef.current = isSoundEnabled; }, [isSoundEnabled]);
   
-  // UI States (for rendering only)
-  const [dodgeCount, setDodgeCount] = useState(0);
-  const [isInvulnerable, setIsInvulnerable] = useState(false);
-  const [isSloMo, setIsSloMo] = useState(false);
   const [showHangar, setShowHangar] = useState(false);
-  const [lastVoidPulse, setLastVoidPulse] = useState(0);
 
   useEffect(() => {
     Animated.spring(tabSlideAnim, {
@@ -352,6 +342,12 @@ export default function ArenaGame() {
   const waveFlashLabel = useRef("WAVE 1");
 
   const [, setFrame] = useState(0);
+
+  // Throttle React re-render pressure:
+  // - Game physics runs every RAF tick
+  // - UI (enemies/powerups transforms + JSX) only re-renders at a fixed rate
+  // This prevents `enemies.current.map(...)` from running 60fps on the JS thread.
+  const lastRenderMsRef = useRef<number>(0);
 
   // ── GLOBAL CONFIG ─────────────────────────────────────────────────────────
 
@@ -742,7 +738,8 @@ export default function ArenaGame() {
           
           // Side-effects outside of render loop
           setTimeout(() => {
-            setHasShield(false);
+            // UI shield indicator is ref-driven for performance
+            hasShieldRef.current = false;
             setScore(0);
             setWaveNumber(1);
             playerAnimX.setValue(width / 2 - PLAYER_SIZE / 2);
@@ -810,7 +807,6 @@ export default function ArenaGame() {
     
     // Reset Multiplier
     multiplierRef.current = 1;
-    setMultiplier(1);
     multiplierPulse.setValue(1);
     
     // Reset Advanced Power State
@@ -818,21 +814,16 @@ export default function ArenaGame() {
     isInvulnerableRef.current = false;
     isSloMoRef.current = false;
     lastVoidPulseRef.current = 0;
-    
-    setDodgeCount(0);
-    setIsInvulnerable(false);
-    setIsSloMo(false);
-    setLastVoidPulse(0);
     lastDodgeTime.current = 0;
     
     // Reset Protection
     const currentSkin = (profiles[currentPlayer]?.currentSkin || "default");
     if (currentSkin === "prism") {
-      setHasShield(true);
-      setThunderCharge(3);
+      hasShieldRef.current = true;
+      thunderChargeRef.current = 3;
     } else {
-      setHasShield(false);
-      setThunderCharge(0);
+      hasShieldRef.current = false;
+      thunderChargeRef.current = 0;
     }
     // ------------------------------------------------
   };
@@ -858,13 +849,12 @@ export default function ArenaGame() {
       // OMEGA: No multiplier reset
       if (multiplierRef.current > 1 && now - lastDodgeTime.current > 3000 && currentSkin !== "prism") {
         multiplierRef.current = 1;
-        setMultiplier(1);
       }
       
       // VOID PULSE: Screen clear every 500 pts (Fixed Phase 55 threshold logic)
       if (currentSkin === "obsidian" && currentScore.current >= lastVoidPulseRef.current + 500) {
          lastVoidPulseRef.current += 500;
-         setLastVoidPulse(lastVoidPulseRef.current);
+         // lastVoidPulse is ref-driven; no UI state update needed
          enemies.current = [];
          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
          triggerWaveFlash("VOID PULSE");
@@ -946,23 +936,18 @@ export default function ArenaGame() {
           dodgeCountRef.current += 1;
           if (dodgeCountRef.current % 20 === 0) {
             isInvulnerableRef.current = true;
-            setIsInvulnerable(true);
             setTimeout(() => {
               isInvulnerableRef.current = false;
-              setIsInvulnerable(false);
             }, 500);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           }
-          setDodgeCount(dodgeCountRef.current);
         }
 
         // SLO-MO: Reflex Dilation (Fixed Phase 55 Ref Logic)
         if (skinId === "carbon") {
            isSloMoRef.current = true;
-           setIsSloMo(true);
            setTimeout(() => {
              isSloMoRef.current = false;
-             setIsSloMo(false);
            }, 400);
         }
 
@@ -981,7 +966,6 @@ export default function ArenaGame() {
         // RAGE ENGINE: 12x Cap
         const maxMult = skinId === "ruby" ? 12 : 10;
         multiplierRef.current = Math.min(multiplierRef.current + 1, maxMult);
-        setMultiplier(multiplierRef.current);
         
         multiplierPulse.setValue(1.5);
         Animated.spring(multiplierPulse, { toValue: 1, friction: 4, useNativeDriver: true }).start();
@@ -1031,10 +1015,8 @@ export default function ArenaGame() {
              }, 300);
           }
           
-          setThunderCharge(0);
-          setHasShield(false);
           thunderChargeRef.current = 0;
-          hasShieldRef.current = false; 
+            hasShieldRef.current = false;
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           
           // Flicker Strobe Effect (Lightning)
@@ -1063,10 +1045,8 @@ export default function ArenaGame() {
         if (hasShieldRef.current) {
           // --- FORGIVABLE SHIELD SYSTEM (Phase 45) ---
           const nextCharge = Math.max(0, thunderChargeRef.current - 1);
-          setThunderCharge(nextCharge);
           thunderChargeRef.current = nextCharge;
           if (nextCharge === 0) {
-            setHasShield(false);
             hasShieldRef.current = false;
           }
           
@@ -1099,8 +1079,8 @@ export default function ArenaGame() {
         if (dSq < Math.pow((PLAYER_SIZE + 20) / 2, 2)) {
           const pType = (p as any).type;
           if (pType === "shield") {
-            setHasShield(true);
-            setThunderCharge(prev => Math.min(prev + 1, 5));
+            hasShieldRef.current = true;
+            thunderChargeRef.current = Math.min(thunderChargeRef.current + 1, 5);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
           powerups.current = powerups.current.filter((item) => item.id !== p.id);
@@ -1123,7 +1103,16 @@ export default function ArenaGame() {
       setGameState("gameover");
       setIsStarting(false);
     } else {
-      setFrame((f) => f + 1);
+      const enemyCount = enemies.current.length;
+      // Adaptive render throttle:
+      // More enemies => fewer React re-renders => physics loop stays responsive.
+      // Player layer is separate — updates at full touch rate (120fps) regardless.
+      const desiredFps = enemyCount >= 26 ? 30 : enemyCount >= 18 ? 40 : 60;
+      const intervalMs = 1000 / desiredFps;
+      if (now - lastRenderMsRef.current >= intervalMs) {
+        lastRenderMsRef.current = now;
+        setFrame((f) => f + 1);
+      }
       requestRef.current = requestAnimationFrame(update);
     }
   }, [
@@ -1213,15 +1202,36 @@ export default function ArenaGame() {
   const step = TUTORIAL_STEPS[tutorialStep];
   const isLastStep = tutorialStep === TUTORIAL_STEPS.length - 1;
 
+  const recentNames = React.useMemo(
+    () =>
+      Object.values(profiles)
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 10)
+        .map((p) => p.name),
+    [profiles],
+  );
+
+  const topProfile = React.useMemo(
+    () => Object.values(profiles).sort((a, b) => b.bestScore - a.bestScore)[0],
+    [profiles],
+  );
+
+  const isChampion = topProfile && topProfile.bestScore > 0;
+
+  const playerSkinColor = React.useMemo(() => {
+    const skinId = profiles[currentPlayer]?.currentSkin || "default";
+    const skin = SKINS.find((s) => s.id === skinId) || SKINS[0];
+    const totalXp = profiles[currentPlayer]?.totalXp || 0;
+    const isUnlocked = totalXp >= (skin.xpRequired || 0);
+    return isUnlocked ? skin.color : SKINS[0].color;
+  }, [profiles, currentPlayer]);
+
   if (!fontsLoaded) return null;
 
-  const recentNames = Object.values(profiles)
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 10)
-    .map(p => p.name);
-
-  const topProfile = Object.values(profiles).sort((a, b) => b.bestScore - a.bestScore)[0];
-  const isChampion = topProfile && topProfile.bestScore > 0;
+  // Read ref-driven gameplay HUD values once per render.
+  const multiplierVal = multiplierRef.current;
+  const hasShieldVal = hasShieldRef.current;
+  const thunderChargeVal = thunderChargeRef.current;
 
   // ── RENDER ────────────────────────────────────────────────────────────────────
   return (
@@ -1287,32 +1297,9 @@ export default function ArenaGame() {
         ]}
       />
 
-      {/* ── PLAYING ── */}
+      {/* ── PLAYING (enemies, powerups, HUD — throttled by setFrame) ── */}
       {gameState === "playing" && (
-        <View style={StyleSheet.absoluteFill}>
-          <Animated.View
-            style={[
-              styles.player,
-              {
-                backgroundColor: (() => {
-                  const skinId = profiles[currentPlayer]?.currentSkin || "default";
-                  const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
-                  const isUnlocked = (profiles[currentPlayer]?.totalXp || 0) >= (skin.xpRequired || 0);
-                  return isUnlocked ? skin.color : SKINS[0].color;
-                })(),
-                shadowColor: (() => {
-                  const skinId = profiles[currentPlayer]?.currentSkin || "default";
-                  const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
-                  const isUnlocked = (profiles[currentPlayer]?.totalXp || 0) >= (skin.xpRequired || 0);
-                  return isUnlocked ? skin.color : SKINS[0].color;
-                })(),
-                transform: [
-                  { translateX: playerAnimX },
-                  { translateY: playerAnimY },
-                ],
-              },
-            ]}
-          />
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {enemies.current.map((enemy) => (
             <View
               key={enemy.id}
@@ -1340,7 +1327,7 @@ export default function ArenaGame() {
               <Ionicons name="shield-checkmark" size={16} color="#FFF" />
             </View>
           ))}
-          {hasShield && (
+          {hasShieldVal && (
             <View style={[styles.playerShield, { left: playerPos.current.x - PLAYER_SIZE/2 - 5, top: playerPos.current.y - PLAYER_SIZE/2 - 5 }]} />
           )}
           <View style={styles.playingHUD}>
@@ -1357,9 +1344,9 @@ export default function ArenaGame() {
               </View>
             </View>
             
-            {multiplier > 1 && (
+            {multiplierVal > 1 && (
               <Animated.View style={[styles.multiplierBadge, { transform: [{ scale: multiplierPulse }] }]}>
-                <Text style={styles.multiplierText}>{multiplier}x</Text>
+                <Text style={styles.multiplierText}>{multiplierVal}x</Text>
                 <Text style={styles.multiplierLabel}>REFLEX BOOST</Text>
               </Animated.View>
             )}
@@ -1371,7 +1358,7 @@ export default function ArenaGame() {
               marginTop: 4, 
               justifyContent: "center",
               transform: [{ 
-                scale: (thunderCharge >= 5) ? thunderPulse.interpolate({ 
+                scale: (thunderChargeVal >= 5) ? thunderPulse.interpolate({ 
                   inputRange: [0, 1], 
                   outputRange: [1, 1.3] 
                 }) : 1 
@@ -1383,10 +1370,10 @@ export default function ArenaGame() {
                   style={{ 
                     width: 8, 
                     height: 4, 
-                    backgroundColor: thunderCharge >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
+                    backgroundColor: thunderChargeVal >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
                     borderRadius: 2,
                     shadowColor: "#00E5FF",
-                    shadowRadius: thunderCharge >= i ? 4 : 0,
+                    shadowRadius: thunderChargeVal >= i ? 4 : 0,
                     shadowOpacity: 0.8
                   }} 
                 />
@@ -1431,6 +1418,24 @@ export default function ArenaGame() {
             </Text>
           </Animated.View>
         </View>
+      )}
+
+      {/* ── PLAYER LAYER (120fps — independent of enemy re-renders) ── */}
+      {gameState === "playing" && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.player,
+            {
+              backgroundColor: playerSkinColor,
+              shadowColor: playerSkinColor,
+              transform: [
+                { translateX: playerAnimX },
+                { translateY: playerAnimY },
+              ],
+            },
+          ]}
+        />
       )}
 
       {/* ── COUNTDOWN ── */}
@@ -1553,7 +1558,7 @@ export default function ArenaGame() {
                           shadowOpacity: 0.3,
                           shadowRadius: 8,
                           elevation: 10,
-                          minWidth: moderateScale(160),
+                          minWidth: moderateScale(180),
                           alignItems: "center",
                           justifyContent: "center",
                           borderWidth: 1,
@@ -1569,7 +1574,7 @@ export default function ArenaGame() {
                               textAlign: "center"
                             }}
                           >
-                            change your name
+                            Change your name
                           </Text>
                         </View>
                         {/* Triangle for Speech Bubble */}
