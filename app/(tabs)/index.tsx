@@ -1238,8 +1238,8 @@ export default function ArenaGame() {
       const prof = prev[pName] || { name: pName, bestScore: 0, bestWave: 1, timestamp: Date.now(), gamesPlayed: 0, totalXp: 0, currentSkin: "default" };
       const isBest = curScore > prof.bestScore;
       
-      // XP BALANCING (Fixed Phase 55): Better scaling for high waves
-      const earnedXp = curScore + (curWave * curWave * 10);
+      // XP BALANCING (Smart Senior Refactor): Exponential scaling for high waves
+      const earnedXp = Math.floor(curScore * (1 + curWave / 100) + Math.pow(curWave, 2.5) * 10);
       const newXp = (prof.totalXp || 0) + (isRename ? 0 : earnedXp);
 
       const updated = {

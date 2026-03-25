@@ -60,7 +60,7 @@ export const BackgroundMusic: React.FC = () => {
             }
             if (bgmPlayer.playing) bgmPlayer.pause();
         }
-    }, [bgmPlayer, isHomePage, isBgmEnabled, isGameOverBgmEnabled, isSoundEnabled]);
+    }, [bgmPlayer, isHomePage, isBgmEnabled, isGameOverBgmEnabled, isSoundEnabled, isHydrated]);
 
     // ── IN-GAME PLAYING MUSIC (playing_Lobby.mp3) ─────────────────────────────
     useEffect(() => {
@@ -98,7 +98,7 @@ export const BackgroundMusic: React.FC = () => {
             }
             if (playingLobbyPlayer.playing) playingLobbyPlayer.pause();
         }
-    }, [playingLobbyPlayer, isPlayingLobbyBgmEnabled, isSoundEnabled]);
+    }, [playingLobbyPlayer, isPlayingLobbyBgmEnabled, isSoundEnabled, isHydrated]);
 
     // ── GAME OVER LOBBY MUSIC ─────────────────────────────────────────────────
     useEffect(() => {
@@ -134,7 +134,7 @@ export const BackgroundMusic: React.FC = () => {
             }
             if (gameOverLobbyPlayer.playing) gameOverLobbyPlayer.pause();
         }
-    }, [gameOverLobbyPlayer, isGameOverBgmEnabled, isSoundEnabled]);
+    }, [gameOverLobbyPlayer, isGameOverBgmEnabled, isSoundEnabled, isHydrated]);
 
     return null;
 };
