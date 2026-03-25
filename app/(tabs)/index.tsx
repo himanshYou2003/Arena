@@ -1232,7 +1232,7 @@ export default function ArenaGame() {
       const prof = prev[pName] || { name: pName, bestScore: 0, bestWave: 1, timestamp: Date.now(), gamesPlayed: 0, totalXp: 0, currentSkin: "default" };
       const isBest = curScore > prof.bestScore;
       
-      const earnedXp = curScore + (curWave * curWave * 10);
+      const earnedXp = curScore + (curWave + curWave * 10);
       const newXp = (prof.totalXp || 0) + (isRename ? 0 : earnedXp);
 
       const updated = {
