@@ -71,13 +71,14 @@ type Profiles = Record<string, PlayerProfile>;
 const WAVE_SIZE = 100;
 const WAVE1_START = 1.2;
 const WAVE1_PEAK = 3.8;
-const WAVE_PEAK_STEP = 2.5;
+const WAVE_PEAK_STEP = 2;
 const RESET_FACTOR = 0.6;
 const SCORE_TICK_MS = 500;
 const BASE_SPAWN_RATE = 2200; // Moderated from 1400 for a smoother start
 const SPAWN_RATE_STEP = 150;  // Gradual scaling
 const MIN_SPAWN_RATE = 800;   // Tactical floor (approx 2 enemies per second)
 const MAX_ENEMIES = 25;       // Balanced buffer for mobile performance
+const THUNDER_STRIKE_THRESHOLD = 4; // Smart Senior Refactor: Standardized Trigger
 // ─── OPTIMIZED LAYERS ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#020202" },
@@ -852,7 +853,7 @@ const TUTORIAL_STEPS = [
     iconColor: "#00E5FF",
     tag: "THUNDER PROTOCOL",
     title: "ENERGY OVERLOAD",
-    body: "Collecting Shields provides protection. If hit, you only lose ONE charge. Collect 5 to trigger a screen-wide Thunder Strike.",
+    body: "Collecting Shields provides protection. If hit, you only lose ONE charge. Collect 4 to trigger a screen-wide Thunder Strike.",
     hint: "Shields stack to clear the arena.",
   },
   {
@@ -920,19 +921,22 @@ const HUDLayer = React.memo(({ score, wave, multiplier, charges }: any) => {
       )}
 
       <View style={{ flexDirection: "row", gap: 4, marginTop: 4, justifyContent: "center" }}>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <View 
-            key={i} 
-            style={{ 
-              width: 8, height: 4, 
-              backgroundColor: charges >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
-              borderRadius: 2,
-              shadowColor: "#00E5FF",
-              shadowRadius: charges >= i ? 4 : 0,
-              shadowOpacity: 0.8
-            }} 
-          />
-        ))}
+        {Array.from({ length: THUNDER_STRIKE_THRESHOLD }).map((_, idx) => {
+          const i = idx + 1;
+          return (
+            <View 
+              key={i} 
+              style={{ 
+                width: 10, height: 4, 
+                backgroundColor: charges >= i ? "#00E5FF" : "rgba(255,255,255,0.2)",
+                borderRadius: 2,
+                shadowColor: "#00E5FF",
+                shadowRadius: charges >= i ? 4 : 0,
+                shadowOpacity: 0.8
+              }} 
+            />
+          );
+        })}
       </View>
     </View>
   );
@@ -1043,6 +1047,8 @@ export default function ArenaGame() {
   useEffect(() => { currentSkinRef.current = profiles[currentPlayer]?.currentSkin || "default"; }, [profiles, currentPlayer]);
   const isSoundEnabledRef = useRef(true);
   useEffect(() => { isSoundEnabledRef.current = isSoundEnabled; }, [isSoundEnabled]);
+
+  const lastVelRef = useRef({ x: 0, y: 0 });
   
   const [showHangar, setShowHangar] = useState(false);
 
@@ -1232,7 +1238,8 @@ export default function ArenaGame() {
       const prof = prev[pName] || { name: pName, bestScore: 0, bestWave: 1, timestamp: Date.now(), gamesPlayed: 0, totalXp: 0, currentSkin: "default" };
       const isBest = curScore > prof.bestScore;
       
-      const earnedXp = curScore + (curWave + curWave * 10);
+      // XP BALANCING (Fixed Phase 55): Better scaling for high waves
+      const earnedXp = curScore + (curWave * curWave * 10);
       const newXp = (prof.totalXp || 0) + (isRename ? 0 : earnedXp);
 
       const updated = {
@@ -1676,6 +1683,12 @@ export default function ArenaGame() {
         setWaveNumber(displayWave);
         triggerWaveFlash(`WAVE ${displayWave}`);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // OMEGA (Fixed Phase 55): Start every sector with at least 3 Shields
+        if (currentSkinRef.current === "prism" && thunderChargeRef.current < 3) {
+           thunderChargeRef.current = 3;
+           hasShieldRef.current = true;
+        }
       }
       setScore(currentScore.current);
     }
@@ -1796,9 +1809,10 @@ export default function ArenaGame() {
         e.y += (dy / d) * enemySpeed * frameDT;
       }
       
-      // SONIC TRAIL: Chrome Kill zone (within 45px while moving fast)
+      // SONIC TRAIL (Fixed Phase 55): Chrome Kill zone (within 45px while moving fast)
       // dSq < Math.pow(45, 2) => dSq < 2025
-      if (skinId === "chrome" && dSq < 2025) {
+      const isMovingFast = Math.abs(lastVelRef.current.x) > 0.5 || Math.abs(lastVelRef.current.y) > 0.5;
+      if (skinId === "chrome" && dSq < 2025 && isMovingFast) {
          enemies.current.splice(i, 1);
          i--;
          continue;
@@ -1812,7 +1826,7 @@ export default function ArenaGame() {
           continue;
         }
 
-        if (thunderChargeRef.current >= 5) {
+        if (thunderChargeRef.current >= THUNDER_STRIKE_THRESHOLD) {
           // --- THUNDER STRIKE! (Full Screen Clear) ---
           enemies.current = [];
           
@@ -1890,7 +1904,7 @@ export default function ArenaGame() {
           const pType = (p as any).type;
           if (pType === "shield") {
             hasShieldRef.current = true;
-            thunderChargeRef.current = Math.min(thunderChargeRef.current + 1, 5);
+            thunderChargeRef.current = Math.min(thunderChargeRef.current + 1, THUNDER_STRIKE_THRESHOLD);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
           powerups.current = powerups.current.filter((item) => item.id !== p.id);
@@ -2001,6 +2015,9 @@ export default function ArenaGame() {
         playerPos.current = { x: nx, y: ny };
         playerAnimX.setValue(nx - PLAYER_SIZE / 2);
         playerAnimY.setValue(ny - PLAYER_SIZE / 2);
+        
+        // Velocity Tracking (Fixed Phase 55)
+        lastVelRef.current = { x: gestureState.vx, y: gestureState.vy };
       },
       onPanResponderRelease: () => {},
     }),
