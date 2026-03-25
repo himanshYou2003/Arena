@@ -24,6 +24,7 @@ interface AudioContextType {
   gameState: string;
   setGameState: (state: string) => void;
   playSfx: (player: any, volume?: number, force?: boolean) => void;
+  isHydrated: boolean;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -44,14 +45,23 @@ export const AudioProvider: React.FC<{
   const [isPlayingLobbyBgmEnabled, setIsPlayingLobbyBgmEnabled] = useState(false);
   const [isSoundEnabled, setIsSoundEnabledState] = useState(true);
   const [gameState, setGameState] = useState("menu");
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // Load sound preference on mount
   useEffect(() => {
-    AsyncStorage.getItem(SOUND_ENABLED_KEY).then(val => {
-      if (val !== null) {
-        setIsSoundEnabledState(val === "true");
+    const loadSettings = async () => {
+      try {
+        const val = await AsyncStorage.getItem(SOUND_ENABLED_KEY);
+        if (val !== null) {
+          setIsSoundEnabledState(val === "true");
+        }
+      } catch (e) {
+        console.error("[AudioContext] Failed to load settings:", e);
+      } finally {
+        setIsHydrated(true);
       }
-    }).catch(() => {});
+    };
+    loadSettings();
   }, []);
 
   const setIsSoundEnabled = (enabled: boolean) => {
@@ -109,7 +119,8 @@ export const AudioProvider: React.FC<{
       thunderStrikePlayer,
       gameState,
       setGameState,
-      playSfx
+      playSfx,
+      isHydrated
     }}>
       {children}
     </AudioContext.Provider>

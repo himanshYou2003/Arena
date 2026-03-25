@@ -11,6 +11,7 @@ export const BackgroundMusic: React.FC = () => {
         playingLobbyPlayer,
         isSoundEnabled,
         isPlayingLobbyBgmEnabled,
+        isHydrated,
     } = useAudio();
     const pathname = usePathname();
     
@@ -27,7 +28,8 @@ export const BackgroundMusic: React.FC = () => {
         if (!bgmPlayer) return;
         bgmPlayer.loop = true;
 
-        const shouldPlay = isHomePage && isBgmEnabled && !isGameOverBgmEnabled && isSoundEnabled;
+
+        const shouldPlay = isHomePage && isBgmEnabled && !isGameOverBgmEnabled && isSoundEnabled && isHydrated;
         
         if (shouldPlay) {
             if (!bgmPlayer.playing) {
@@ -65,7 +67,8 @@ export const BackgroundMusic: React.FC = () => {
         if (!playingLobbyPlayer) return;
         playingLobbyPlayer.loop = true;
 
-        const isPlaying = isPlayingLobbyBgmEnabled && isSoundEnabled;
+
+        const isPlaying = isPlayingLobbyBgmEnabled && isSoundEnabled && isHydrated;
 
         if (isPlaying) {
             if (!playingLobbyPlayer.playing) {
@@ -102,7 +105,8 @@ export const BackgroundMusic: React.FC = () => {
         if (!gameOverLobbyPlayer) return;
         gameOverLobbyPlayer.loop = true;
 
-        if (isGameOverBgmEnabled && isSoundEnabled) {
+
+        if (isGameOverBgmEnabled && isSoundEnabled && isHydrated) {
             if (!gameOverLobbyPlayer.playing) {
                 gameOverLobbyPlayer.playbackSpeed = 1.0;
                 gameOverLobbyPlayer.volume = 0;
