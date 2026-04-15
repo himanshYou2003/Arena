@@ -33,9 +33,12 @@ import { useAudio } from "@/context/AudioContext";
 
 const { width, height } = Dimensions.get("window");
 
+// PROFESSIONAL TABLET SCALING: Limit base scaling width to prevent "blown-up" UI
+const SCALING_WIDTH = Math.min(width, 500);
+
 const BASE_WIDTH = 375;
 const BASE_HEIGHT = 812;
-const scale = (size: number) => (width / BASE_WIDTH) * size;
+const scale = (size: number) => (SCALING_WIDTH / BASE_WIDTH) * size;
 const verticalScale = (size: number) => (height / BASE_HEIGHT) * size;
 const moderateScale = (size: number, factor = 0.5) => size + (scale(size) - size) * factor;
 
@@ -313,6 +316,8 @@ const styles = StyleSheet.create({
   },
   tutCard: {
     width: width - moderateScale(48),
+    maxWidth: 550, // Tablet optimization: Avoid excessive stretching
+    alignSelf: "center",
     backgroundColor: "#0a0a0a",
     borderWidth: moderateScale(1),
     borderColor: "rgba(255,255,255,0.06)",
@@ -436,6 +441,8 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     width: "100%",
+    maxWidth: 550, // Tablet optimization: Center content on wide screens
+    alignSelf: "center",
     paddingHorizontal: moderateScale(24),
     alignItems: "center",
     flex: 1,
@@ -563,6 +570,7 @@ const styles = StyleSheet.create({
   },
   proCardModalLarge: {
     width: "95%",
+    maxWidth: 600, // Tablet optimization: Avoid excessive stretching
     maxHeight: height * 0.8,
     backgroundColor: "#080808",
     borderWidth: moderateScale(1),
@@ -2442,7 +2450,7 @@ export default function ArenaGame() {
             </View>
 
             <View style={styles.footer}>
-              <Text style={styles.copyright}>© 2026 ARENA by ( Himanshu Kumar )</Text>
+              {/* <Text style={styles.copyright}>© 2026 ARENA by ( Himanshu Kumar )</Text> */}
             </View>
           </ImageBackground>
         </Animated.View>
