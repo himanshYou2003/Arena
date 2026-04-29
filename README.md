@@ -4,7 +4,6 @@
 ## 📌 Project Details
 - **Project Title:** ARENA  
 - **Type:** Copyright  
-- **Class of Work:** Computer Software  
 
 ## 👨‍💻 Team Information
 
