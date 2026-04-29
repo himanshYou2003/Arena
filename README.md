@@ -1,3 +1,37 @@
+
+# ARENA (Android Game)
+
+## 📌 Project Details
+- **Project Title:** ARENA  
+- **Type:** Copyright  
+- **Class of Work:** Computer Software  
+
+## 👨‍💻 Team Information
+
+### Team Lead
+- **Name:** Himanshu Kumar  
+- **Roll No:** 2210991661  
+
+### Team Member
+- **Name:** Chirag Bhatia  
+- **Roll No:** 2210990238  
+
+## 📄 Application Details
+- **Diary Number:** SW-20576/2026-CO  
+- **Old Diary Number:** N/A  
+- **Submitted By:** Himanshu Kumar  
+- **Submitted On:** 29/04/2026  
+
+## ⏳ Current Status
+- **Application Status:** Waiting  
+- **Project Status:** Waiting  
+
+## 📱 Published On Play Store
+- **App Link:** https://play.google.com/store/apps/details?id=com.himanshyou.arena
+
+
+
+
 # ARENA
 
 A minimalist, high-performance survival game built with React Native and Expo.
