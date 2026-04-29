@@ -16,8 +16,7 @@
 - **Roll No:** 2210990238  
 
 ## 📄 Application Details
-- **Diary Number:** SW-20576/2026-CO  
-- **Old Diary Number:** N/A  
+- **Diary Number:** SW-20576/2026-CO   
 - **Submitted By:** Himanshu Kumar  
 - **Submitted On:** 29/04/2026  
 
