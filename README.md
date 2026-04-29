@@ -23,8 +23,8 @@
 - **Submitted On:** 29/04/2026  
 
 ## ⏳ Current Status
-- **Application Status:** Waiting  
-- **Project Status:** Waiting  
+- **Application Status:** Complete
+- **Copyright Status:** Waiting  
 
 ## 📱 Published On Play Store
 - **App Link:** https://play.google.com/store/apps/details?id=com.himanshyou.arena
