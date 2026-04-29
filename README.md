@@ -62,17 +62,3 @@ ARENA is designed to be "always on" and extremely efficient, using minimal CPU r
 
 ## Copyright and License
 This software is provided "as-is" for the purpose of buildable game development. I hereby declare the copyright for "ARENA" to be maintained for future development and publishing.
-
-
-
-google-sign-in
-sound
-
-epecally sound fix
-
-fix all sound issue ,no any sound coming
-bgm only should come in home page in loop until click on start button then stop 
-as start button get click countdown sound start comes with 0 delay
-as player cross red dot from close then only dodge sound should come and when new wave start then level up sound come and as player get out then ones only gameover_simple.mp3 sound comes and as player get out gameover_lobby.mp3 shound comes but in loop 
-
-deep analysis issue then fix it
