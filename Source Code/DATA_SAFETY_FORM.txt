@@ -1,0 +1,23 @@
+Google Play Data Safety Form Answers for ARENA
+
+This is a guide for what you should select when filling out the Data Safety section in the Google Play Console for ARENA.
+
+1. Data Collection and Security
+------------------------------
+- Does your app collect or share any of the required user data types? -> No
+- Is all of the user data collected by your app encrypted in transit? -> Yes (If you collect data in the future)
+- Do you provide a way for users to request that their data be deleted? -> Yes (If you collect data in the future)
+
+2. Data Types Collected
+-----------------------
+- Select "None of the above" for all data types (Location, Personal info, Financial info, Health and fitness, Messages, Photos and videos, Audio files, Files and docs, Calendar, Contacts, App activity, Web browsing, App info and performance, Device or other IDs) unless you specifically add them in the future.
+
+3. Data Usage and Sharing
+-------------------------
+- If you use Expo's default libraries, they typically don't collect data unless specified (like expo-location). Since you are not using them, you can safely select No for all.
+
+4. Account Deletion (IMPORTANT)
+-------------------------------
+- If your app doesn't have accounts, select "My app doesn't have a way for users to create an account."
+
+Disclaimer: These answers are based on the current state of your app which is purely offline and does not collect or store user information on external servers. If you add Firebase, Google Analytics, or any cloud-sync system in the future, you MUST update this form and your Privacy Policy immediately.

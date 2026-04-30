@@ -30,6 +30,11 @@
 ![Diary Number](assets/images/DIARYNUMBER.png)
 
 
+
+
+
+
+
 # ARENA
 
 A minimalist, high-performance survival game built with React Native and Expo.
