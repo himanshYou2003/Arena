@@ -27,7 +27,7 @@
 ## 📱 Published On Play Store
 - **App Link:** https://play.google.com/store/apps/details?id=com.himanshyou.arena
 
-![Diary Number](assets/images/DIARYNUMBER.png)
+![Diary Number](Source Code/assets/images/DIARYNUMBER.png)
 
 
 
